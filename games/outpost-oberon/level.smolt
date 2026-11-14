@@ -19,7 +19,7 @@ struct BoomBlock:
     y
     countdown   # while '#': frames until it explodes, 0 = fuse not lit; while gone: frames until it is back
 
-const BOOM_BLOCK_FUSE      = 90   # after the hero stands on it
+const BOOM_BLOCK_FUSE      = 96   # after the hero stands on it; 4 fuse loops of 24 frames
 const BOOM_BLOCK_SHOT_FUSE = 6    # after it was shot or a neighbour exploded
 const BOOM_BLOCK_RESPAWN   = 240  # frames until it is back, including:
 const BOOM_BLOCK_GROW      = 24   # the last frames, where it grows back
@@ -333,6 +333,8 @@ func level_update():
                 b.countdown = BOOM_BLOCK_FUSE
             if b.countdown > 0:
                 b.countdown -= 1
+                # beep as each red pulse starts from the centre (frame 1 of the fuse loop)
+                if b.countdown % 24 == 23: audio_play_sfx(SFX_BOOM_BEEP)
                 if b.countdown == 0:
                     level.data[b.i] = ' '
                     b.countdown = BOOM_BLOCK_RESPAWN
@@ -472,7 +474,9 @@ func level_draw_walls():
 
     for i = 0, level.pickup_count:
         var p = &level.pickups[i]
-        if not p.taken: camera_sprite(p.x, p.y, TS, TS, level.tick / 6 % 8 * TS, 208, 0)
+        if not p.taken:
+            var frame = level.tick / 6 % 8
+            camera_sprite(p.x, p.y, TS, TS, frame * TS, 208 + 16, 0)
 
     for i = 0, level.boom_block_count:
         var b = &level.boom_blocks[i]

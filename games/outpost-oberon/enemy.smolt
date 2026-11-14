@@ -60,14 +60,15 @@ func enemy_bullet_update_all():
         var hit_y = level_move_box_y(&b.sy, &b.box, b.vy, true)
         if hit_x or hit_y:
             b.alive = false
+            # the bullet's front pixel; the wall is one pixel further
             var px = box_center_x(b.box)
             var py = box_center_y(b.box)
-            # the first pixel of the wall that was hit
-            if hit_x == DIR_LEFT:  px = b.box.x - 1
-            if hit_x == DIR_RIGHT: px = b.box.x + b.box.w
-            if hit_y == DIR_UP:    py = b.box.y - 1
-            if hit_y == DIR_DOWN:  py = b.box.y + b.box.h
-            level_light_boom_block(px, py)
+            if hit_x == DIR_LEFT:  px = b.box.x
+            if hit_x == DIR_RIGHT: px = b.box.x + b.box.w - 1
+            if hit_y == DIR_UP:    py = b.box.y
+            if hit_y == DIR_DOWN:  py = b.box.y + b.box.h - 1
+            level_light_boom_block(px + (hit_x == DIR_RIGHT) - (hit_x == DIR_LEFT),
+                                   py + (hit_y == DIR_DOWN) - (hit_y == DIR_UP))
             particle_spawn(PARTICLE_TYPE_FLASH, px, py)
             audio_play_sfx(SFX_BULLET_WALL)
             continue
