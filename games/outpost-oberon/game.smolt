@@ -74,7 +74,8 @@ func camera_follow_hero():
 const CAM_RETURN_ACCEL     = SP * 2 / 3
 const CAM_RETURN_MAX_SPEED = 16 * SP
 
-func camera_return_toward_spawn():
+# true once the camera is in place
+func camera_return_toward_spawn() int:
     if camera.speed < 0:
         camera.sx = camera.box.x * SP
         camera.sy = camera.box.y * SP
@@ -87,14 +88,16 @@ func camera_return_toward_spawn():
     var ideal = min(CAM_RETURN_MAX_SPEED, sqrt(2 * CAM_RETURN_ACCEL * l))
     camera.speed = clamp(ideal, camera.speed - CAM_RETURN_ACCEL, camera.speed + CAM_RETURN_ACCEL)
     if camera.speed >= l:
+        camera.sx = tx
+        camera.sy = ty
         camera.box.x = tx / SP
         camera.box.y = ty / SP
-        hero_set_state(HERO_STATE_SPAWNING)
-        return
+        return true
     camera.sx += dx * camera.speed / l
     camera.sy += dy * camera.speed / l
     camera.box.x = camera.sx / SP
     camera.box.y = camera.sy / SP
+    return false
 
 
 
@@ -121,6 +124,8 @@ func game_set_state(s):
         hero.state = HERO_STATE_NORMAL
 
     elif s == GAME_STATE_GAME_OVER or s == GAME_STATE_WIN:
+        hero.score += hero.quanta * QUANTUM_BONUS
+        hero.quanta = 0
         if hero.score > game.hiscore:
             game.hiscore = hero.score
             save(&game.hiscore, 1)
@@ -200,9 +205,9 @@ func game_update():
 
 func draw_hud():
     var buf: int[12]
-    strnum(buf, hero.lives)
-    draw_text(2, SCREEN_H - 10, "x")
-    draw_text(10, SCREEN_H - 10, buf)
+    strnum(buf, hero.quanta)
+    sprite(3, SCREEN_H - 9, 6, 6, 0, 240, 0)
+    draw_text(11, SCREEN_H - 10, buf)
     strnum(buf, hero.score)
     draw_text(SCREEN_W - strlen(buf) * 8 - 2, SCREEN_H - 10, buf)
 

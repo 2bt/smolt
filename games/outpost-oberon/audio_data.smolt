@@ -1,6 +1,6 @@
 # SFX voices, grouped so that sounds which often overlap don't cut each other off:
 #   @0  hero shooting
-#   @1  hero moving: jump, land, losing the helmet
+#   @1  hero moving: jump, land, losing the helmet, paying quanta on respawn
 #   @2  impacts: bullet hits wall, enemy hit or exploding, boom block (noise)
 #   @3  enemies and the world: charge, shots, bugger jump, beeps, boom block (tone), pickups
 # spawn, exit and game over take two voices each; nothing else is going on then
@@ -29,6 +29,8 @@ var SFX_BOOM = "
 "
 var SFX_BOOM_BEEP    = "@3 v40 d4 W128 P=96,,"
 var SFX_HELMET_LOST  = "@1 d10 N=80|,+-4,+-4,+-4,"
+var SFX_QUANTUM      = "@3 v40 d4 W64 P=84,=91,"
+var SFX_QUANTUM_PAID = "@1 v32 d2 W64 P=79,=72,"
 var SFX_PICKUP       = "@3 d7 PW99=60,,,+5,,+7,,+-5,40"
 var SFX_CHECKPOINT   = "@3 v72 l99 a5d10 T=44|,,+7,,+8,,+-14"
 var SFX_GAME_OVER = "

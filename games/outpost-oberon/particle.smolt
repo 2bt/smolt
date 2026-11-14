@@ -3,6 +3,9 @@ const PARTICLE_TYPE_FLASH     = 2
 const PARTICLE_TYPE_CHARGE    = 3
 const PARTICLE_TYPE_EXPLOSION = 4
 const PARTICLE_TYPE_BLAST     = 5  # boom block: big white circle
+const PARTICLE_TYPE_SPARKLE   = 6
+
+const SPARKLE_FRAMES = 6
 
 
 struct Particle:
@@ -41,6 +44,9 @@ func particle_spawn(type, x, y) Particle*:
 
             elif type == PARTICLE_TYPE_BLAST:
                 p.ttl = 4
+
+            elif type == PARTICLE_TYPE_SPARKLE:
+                p.ttl = SPARKLE_FRAMES * 3 # NOTE: adding to ttl delays its appearance
 
             return p
     return null
@@ -100,3 +106,7 @@ func particle_draw_all():
 
         elif p.type == PARTICLE_TYPE_BLAST:
             camera_sprite(x - 16, y - 16, 32, 32, 32, 304, 0)
+
+        elif p.type == PARTICLE_TYPE_SPARKLE:
+            var frame = SPARKLE_FRAMES - 1 - (p.ttl - 1) / 3
+            if frame >= 0: camera_sprite(x - 3, y - 3, 7, 7, frame * 8, 264, 0)

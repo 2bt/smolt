@@ -78,7 +78,8 @@ struct Hero:
     facing_left
     on_ground
 
-    lives
+    quanta      # energy: a respawn costs QUANTA_RESPAWN, dying with none is game over
+    quanta_due  # quanta still to pay; paid once the camera is back, before spawning
     score
     frame
     run_tick
@@ -185,7 +186,7 @@ func hero_init():
     hero = {}
     hero.box.w = 8
     hero.box.h = 14
-    hero.lives = 5
+    hero.quanta = QUANTA_START
 
 
 func hero_set_state(s):
@@ -196,6 +197,7 @@ func hero_set_state(s):
         audio_play_sfx(SFX_SPAWN)
     elif s == HERO_STATE_DYING:
         hero.hit_countdown = 20
+        hero.quanta_due = min(hero.quanta, QUANTA_RESPAWN)
         hero.helmet = false
         hero.vx = 0
         hero.vy = 0
@@ -247,7 +249,13 @@ func hero_hurt():
 
 func hero_update():
     if hero.state == HERO_STATE_RETURNING:
-        camera_return_toward_spawn()
+        if not camera_return_toward_spawn(): return
+        # pay for the respawn, counting down on the HUD, then spawn
+        if hero.quanta_due == 0: hero_set_state(HERO_STATE_SPAWNING)
+        elif level.tick % 3 == 0:
+            hero.quanta_due -= 1
+            hero.quanta -= 1
+            audio_play_sfx(SFX_QUANTUM_PAID)
         return
 
     if hero.state == HERO_STATE_SPAWNING:
@@ -268,13 +276,8 @@ func hero_update():
         hero.sy += hero.vy
         hero.box.y = hero.sy / SP
         if hero.hit_countdown > 0: hero.hit_countdown -= 1
-        else:
-            hero.lives -= 1
-            if hero.lives <= 0:
-                hero.lives = 0
-                game_set_state(GAME_STATE_GAME_OVER)
-            else:
-                hero_set_state(HERO_STATE_RETURNING)
+        elif hero.quanta == 0: game_set_state(GAME_STATE_GAME_OVER)
+        else: hero_set_state(HERO_STATE_RETURNING)
 
     if hero.state != HERO_STATE_NORMAL:
         cape_update()
