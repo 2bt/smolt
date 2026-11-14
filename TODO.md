@@ -1,16 +1,16 @@
 ## Outpost Oberon
 
 
-+ [ ] exploding blocks should beep
++ [x] exploding blocks should beep
 + [ ] cape ability
 + [ ] cape pickup
 
 
 + [ ] more enemies
 + [ ] more levels
-+ [ ] high score
-+ [ ] screen shake
-+ [ ] moving platforms
++ [x] high score
++ [x] screen shake
++ [x] moving platforms
 + [ ] destructible walls
 
 enemies:
