@@ -355,6 +355,10 @@ func level_update():
         if hero.state == HERO_STATE_NORMAL and hero.on_ground and level_platform_supports(p, hero.box):
             hero.sy += dy * SP
             hero.box.y += dy
+            for c in cape:   # previous positions too, so the move adds no swing
+                c.sy  += dy * SP
+                c.psy += dy * SP
+
         for e in enemies:
             if e.state == ENEMY_STATE_NORMAL and e.on_ground and level_platform_supports(p, e.box):
                 e.sy += dy * SP

@@ -127,6 +127,9 @@ struct Enemy:
 
     # jelly
     home_sy
+
+    # piñata: turns around this far from its spawn point
+    home_sx
     charge: Particle*
 
 var enemies: Enemy[64]
@@ -198,6 +201,7 @@ func enemy_spawn(type, x, y):
 
         if type == ENEMY_TYPE_JELLY or type == ENEMY_TYPE_PINATA:
             e.sy = (y + 8 - e.box.h / 2) * SP
+        e.home_sx = e.sx
 
         e.box.x = e.sx / SP
         e.box.y = e.sy / SP
@@ -695,8 +699,14 @@ const PINATA_WAVE  = 16
 # back and forth between walls, on a wave: the vertical speed ramps up and down
 func enemy_pinata_update(e: Enemy*):
     e.frame = e.anim_tick / 8 % 4
-    if level_move_box_x(&e.sx, &e.box, e.facing_left ? -PINATA_SPEED : PINATA_SPEED):
+    var dx = e.sx - e.home_sx
+    if   dx >  40 * SP: e.facing_left = true
+    elif dx < -40 * SP: e.facing_left = false
+    if e.anim_tick % 2 == 0: e.vx = clamp(e.vx + (e.facing_left ? -1 : 1), -PINATA_SPEED, PINATA_SPEED)
+
+    if level_move_box_x(&e.sx, &e.box, e.vx):
         e.facing_left = not e.facing_left
+        e.vx = 0
     e.vy += e.anim_tick / (PINATA_WAVE * 2) % 2 ? 1 : -1
-    level_move_box_y(&e.sy, &e.box, e.vy, true)   # a floor or ceiling cuts the wave short
+    level_move_box_y(&e.sy, &e.box, e.vy, true)
     e.anim_tick += 1
