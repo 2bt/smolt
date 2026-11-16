@@ -11,7 +11,7 @@ const HERO_EXIT_FRAMES     = 40
 const RUN_MAX      = 20
 const ACCEL_GROUND = 5
 const ACCEL_AIR    = 2
-const JUMP_FORCE   = 50
+const JUMP_FORCE   = 51
 
 
 struct HeroBullet:
@@ -369,8 +369,7 @@ func hero_update():
         hero_bullet_spawn(bx, by, hero.facing_left, 2)
         if hero.helmet:
             # triple shot: two weaker bullets above and below, a little behind
-            if hero.facing_left: bx += 4
-            else:                bx -= 1
+            bx += hero.facing_left ? 4 : -1
             hero_bullet_spawn(bx, by - 4, hero.facing_left, 1)
             hero_bullet_spawn(bx, by + 4, hero.facing_left, 1)
 

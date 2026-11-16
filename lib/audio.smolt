@@ -20,6 +20,7 @@ struct AudioVoice:
     vib_pos
     vib_rate
     vib_depth
+    priority    # sfx only: see audio_play_sfx
 
 struct AudioTrack:
     index
@@ -256,6 +257,9 @@ func audio_update_music():
         sound(v.index + 4, pitch, vc.pw, vol * audio_music_volume / 64, vc.wave)
 
 
+func audio_sfx_voice_free(v: AudioVoice*) int:
+    return not v.pos or v.env != AUDIO_ENV_ATTACK and v.level < AUDIO_ENV_PEAK / 2
+
 func audio_play_sfx(p: int*):
     while p.*:
         var c = p.*
@@ -263,8 +267,13 @@ func audio_play_sfx(p: int*):
         if c == '#': audio_skip_line(p)
         elif c == '@':
             var i = audio_read_num(p)
-            if i < audio_sfx.len:
+            var priority = 1
+            if p.* == '!':
+                p += 1
+                priority = audio_read_num(p)
+            if i < audio_sfx.len and (priority >= audio_sfx[i].priority or audio_sfx_voice_free(audio_sfx[i])):
                 audio_sfx[i] = {}
+                audio_sfx[i].priority = priority
                 audio_voice_start(&audio_sfx[i], p)
 
 func audio_update_sfx():

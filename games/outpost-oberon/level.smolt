@@ -57,7 +57,7 @@ struct Pickup:
     ttl     # dropped: frames until it's gone; placed: 0, stays
 
 const PICKUP_DROP_FRAMES  = 900  # 15 s: long enough to come back for, too short to bank as a spare life
-const PICKUP_FLY_FRAMES   = 64   # the first frames, where a dropped one flies; most stop early, on ty
+const PICKUP_FLY_FRAMES   = 60   # the first frames, where a dropped one flies; most stop early, on ty
 const PICKUP_BLINK_FRAMES = 60   # the last frames before a dropped one is gone
 
 const HELMET_SCORE   = 100
@@ -159,8 +159,14 @@ func level_drop_pickup(type, x, y):
     if not p: return
     p.ttl = PICKUP_DROP_FRAMES
     p.vx  = rand(-18, 18)
-    p.vy  = rand(-28, -8)
-    p.ty  = p.box.y + rand(-4, 12)
+    p.vy  = rand(-30, -12)
+    p.ty  = p.box.y + rand(-8, 8)
+    var l = p.vx * p.vx + p.vy * p.vy
+    if l < 20 * 20:
+        l = sqrt(l)
+        p.vx = p.vx * rand(20, 30) / l
+        p.vy = p.vy * rand(20, 30) / l
+
 
 
 func level_add_platform(type, c, r, n):
@@ -467,14 +473,14 @@ func level_update():
                 p.type = PICKUP_NONE
                 continue
 
-        # velocity: a dropped one flies like debris at first; then it hovers, except that quanta
-        # are a bit magnetic: near the hero they drift toward it, the closer the faster
+        # velocity: a dropped one flies like debris at first; then it hovers
         var flying = p.ttl > PICKUP_DROP_FRAMES - PICKUP_FLY_FRAMES
         if flying: p.vy += GRAVITY / 2
         else:
             p.vx = 0
             p.vy = 0
             if p.type == PICKUP_QUANTUM and hero.state == HERO_STATE_NORMAL:
+                # quants are magnetic
                 var dx = box_center_x(hero.box) - box_center_x(p.box)
                 var dy = box_center_y(hero.box) - box_center_y(p.box)
                 var d  = sqrt(dx * dx + dy * dy)
