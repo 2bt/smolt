@@ -55,7 +55,7 @@ func hero_bullet_update_all():
             if e.state != ENEMY_STATE_NORMAL: continue
             if box_intersects(e.box, b.box):
                 b.alive = false
-                enemy_hit(e)
+                enemy_hurt(e)
                 var px = b.vx < 0 ? b.box.x : b.box.x + b.box.w - 1
                 for i = 0, 3: particle_spawn(PARTICLE_TYPE_DEBRIS, px, b.box.y)
                 break
@@ -91,7 +91,7 @@ var hero: Hero
 
 
 # ---------------------------------------------------------------------------
-# cape (prototype): verlet chain hanging from the hero's back
+# cape
 # ---------------------------------------------------------------------------
 
 
@@ -119,12 +119,15 @@ func cape_update():
     # turning moves the anchor across the back; carry the cape along instead of yanking it
     if hero.facing_left != cape_facing_left:
         cape_facing_left = hero.facing_left
-        var d = (hero.facing_left ? 5 : -5) * SP
+        var d = (hero.facing_left ? 4 : -4) * SP
         for p in cape:
             p.sx  += d
             p.psx += d
 
     cape[0] = { ax, ay, ax, ay }
+    # tiny flutter when shooting
+    if hero.shoot_countdown and hero.frame == 0: cape[0].sx += (hero.facing_left ? -1 : 1) * SP
+
     var speed = abs(hero.vx)
     for i = 1, cape.len:
         var p = &cape[i]

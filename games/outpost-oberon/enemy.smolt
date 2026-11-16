@@ -6,6 +6,7 @@ const ENEMY_TYPE_PATROL  = 1
 const ENEMY_TYPE_BUGGER  = 2
 const ENEMY_TYPE_CANNON  = 3
 const ENEMY_TYPE_JELLY   = 4
+const ENEMY_TYPE_PINATA  = 5
 
 const ENEMY_BULLET_TYPE_BASIC = 1
 const ENEMY_BULLET_TYPE_AIMED = 2
@@ -142,6 +143,7 @@ func enemy_init_all():
             elif t == 'b': enemy_spawn(ENEMY_TYPE_BUGGER, x, y)
             elif t == 'c': enemy_spawn(ENEMY_TYPE_CANNON, x, y)
             elif t == 'j': enemy_spawn(ENEMY_TYPE_JELLY, x, y)
+            elif t == 'o': enemy_spawn(ENEMY_TYPE_PINATA, x, y)
 
 func enemy_spawn(type, x, y):
     for e in enemies:
@@ -179,6 +181,12 @@ func enemy_spawn(type, x, y):
             e.vy    = JELLY_SPEED
             e.shoot_countdown = rand(40, 100)
 
+        elif type == ENEMY_TYPE_PINATA:
+            e.box.w = 12
+            e.box.h = 12
+            e.hp    = PINATA_HP
+            e.vy    = PINATA_WAVE
+
 
         e.sx = (x + 8 - e.box.w / 2) * SP
         e.sy = (y + 16 - e.box.h) * SP + SP - 1
@@ -188,7 +196,7 @@ func enemy_spawn(type, x, y):
             if e.facing_left: e.sx += 5 * SP
             else:             e.sx -= 6 * SP
 
-        if type == ENEMY_TYPE_JELLY:
+        if type == ENEMY_TYPE_JELLY or type == ENEMY_TYPE_PINATA:
             e.sy = (y + 8 - e.box.h / 2) * SP
 
         e.box.x = e.sx / SP
@@ -227,8 +235,9 @@ func enemy_update_all():
                 hero.score += (
                     e.type == ENEMY_TYPE_PATROL ? 100 :
                     e.type == ENEMY_TYPE_BUGGER ? 150 :
-                    e.type == ENEMY_TYPE_CANNON ? 125 :
+                    e.type == ENEMY_TYPE_CANNON ? 300 :
                     e.type == ENEMY_TYPE_JELLY  ? 200 :
+                    e.type == ENEMY_TYPE_PINATA ? 100 :
                     0)
 
             continue
@@ -248,6 +257,7 @@ func enemy_update_all():
             elif e.type == ENEMY_TYPE_BUGGER: enemy_bugger_update(e)
             elif e.type == ENEMY_TYPE_CANNON: enemy_cannon_update(e)
             elif e.type == ENEMY_TYPE_JELLY:  enemy_jelly_update(e)
+            elif e.type == ENEMY_TYPE_PINATA: enemy_pinata_update(e)
 
 
 func enemy_draw_all():
@@ -281,11 +291,17 @@ func enemy_draw_all():
                           144 + (e.hit_countdown > 0) * 16,
                           0)
 
+        elif e.type == ENEMY_TYPE_PINATA:
+            camera_sprite(e.box.x - 2, e.box.y - 2, 16, 16,
+                          256 + e.frame * 16,
+                          176 + (e.hit_countdown > 0) * 16,
+                          0)
+
         # box
         # camera_sprite(e.box.x, e.box.y, e.box.w, e.box.h, 0, 480, 0)
 
 
-func enemy_hit(e: Enemy*):
+func enemy_hurt(e: Enemy*):
     if e.state != ENEMY_STATE_NORMAL: return
     e.hp -= 1
     e.hit_countdown = 3
@@ -300,6 +316,9 @@ func enemy_hit(e: Enemy*):
     elif e.type == ENEMY_TYPE_BUGGER:
         enemy_bugger_set_mode(e, BUGGER_MODE_FOLLOW)
 
+    elif e.type == ENEMY_TYPE_PINATA:
+        level_drop_pickup(PICKUP_QUANTUM, box_center_x(e.box), box_center_y(e.box))
+
     if e.hp <= 0: enemy_kill(e)
     else: audio_play_sfx(SFX_ENEMY_HIT)
 
@@ -311,6 +330,8 @@ func enemy_kill(e: Enemy*):
     e.vy = 0
     particle_spawn(PARTICLE_TYPE_EXPLOSION, box_center_x(e.box), box_center_y(e.box))
     audio_play_sfx(SFX_EXPLOSION)
+    if e.type == ENEMY_TYPE_PINATA:
+        for i = 0, 2: level_drop_pickup(PICKUP_QUANTUM, box_center_x(e.box), box_center_y(e.box))
 
 
 
@@ -660,3 +681,22 @@ func enemy_jelly_update(e: Enemy*):
                 b.vx = dx * AIMED_BULLET_SPEED / len
                 b.vy = dy * AIMED_BULLET_SPEED / len
                 audio_play_sfx(SFX_CANNON_SHOOT)
+
+
+
+# ---------------------------------------------------------------------------
+# piñata
+# ---------------------------------------------------------------------------
+
+const PINATA_HP    = 4
+const PINATA_SPEED = 10
+const PINATA_WAVE  = 16
+
+# back and forth between walls, on a wave: the vertical speed ramps up and down
+func enemy_pinata_update(e: Enemy*):
+    e.frame = e.anim_tick / 8 % 4
+    if level_move_box_x(&e.sx, &e.box, e.facing_left ? -PINATA_SPEED : PINATA_SPEED):
+        e.facing_left = not e.facing_left
+    e.vy += e.anim_tick / (PINATA_WAVE * 2) % 2 ? 1 : -1
+    level_move_box_y(&e.sy, &e.box, e.vy, true)   # a floor or ceiling cuts the wave short
+    e.anim_tick += 1

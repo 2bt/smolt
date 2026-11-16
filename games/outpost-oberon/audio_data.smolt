@@ -24,15 +24,17 @@ var SFX_BUGGER_JUMP  = "@3 d3 W32 P=44,+4,+4|f4,"
 var SFX_ENEMY_HIT    = "@2 d3 N=66,T=60,=54,=50,"
 var SFX_EXPLOSION    = "@2 d8 N|=60,+-10,+-10,+-8,,"
 var SFX_BOOM = "
-@2 d14 N|=40,+-3,+-3,+-3,+-3,+-3,,,
-@3 d9 T|=28,+-2,+-2,+-2,+-2,,
+@2 d8 T|=28,+-2,+-2,+-2,+-2,,
+@3 d10 N|=40,+-3,+-3,+-3,+-3,+-3,,,
 "
-var SFX_BOOM_BEEP    = "@3 v40 d4 W128 P=96,,"
-var SFX_HELMET_LOST  = "@1 d10 N=80|,+-4,+-4,+-4,"
-var SFX_QUANTUM      = "@3 v40 d4 W64 P=84,=91,"
-var SFX_QUANTUM_PAID = "@1 v32 d2 W64 P=79,=72,"
-var SFX_PICKUP       = "@3 d7 PW99=60,,,+5,,+7,,+-5,40"
-var SFX_CHECKPOINT   = "@3 v72 l99 a5d10 T=44|,,+7,,+8,,+-14"
+var SFX_BOOM_BEEP      = "@3 v40 d4 W128 P=96,,"
+var SFX_HELMET_LOST    = "@1 d10 N=80|,+-4,+-4,+-4,"
+var SFX_QUANTUM_PAID   = "@1 v32 d2 W64 P=79,=72,3"
+var SFX_PICKUP_QUANTUM = "@3 v40 d4 W64 P|=76,,=83,,=90,,"
+
+var SFX_PICKUP_HELMET  = "@3 a2d7 PW10w20|=78,,,=73,,,=71,,,=70,,,"
+
+var SFX_CHECKPOINT     = "@3 v72 l99 a5d10 T=44|,,+7,,+8,,+-14"
 var SFX_GAME_OVER = "
 @0 d12 s64 r10 l4 T|=48,4=40,4=32,4=24,4
 @1 v48 a3 d12 N|=12,,=28,,
