@@ -1,14 +1,18 @@
-# moving platform: a row of 'V' tiles in the level data; moves up and down
-# through free tiles and turns around at a solid tile or on the row of a '.'
+# moving platform: a row of 'V' tiles in the level data moves up and down, a row of 'H' tiles left
+# and right; through free tiles, turning around on a '.', on a solid tile (V) or before one (H)
+const PLATFORM_NONE = 0   # free slot
+const PLATFORM_V    = 1
+const PLATFORM_H    = 2
+
 struct Platform:
-    x       # pixels
-    w
-    y       # top surface, pixels
-    sy      # top surface, subpixels
+    type
+    box: Box     # the surface you stand on: box.y is the top, 1 pixel high
+    sx           # box position in subpixels
+    sy
+    vx           # one of them is 0
     vy
-    top     # sy range
-    bottom
-    wait    # frames to pause before moving on
+    range: Box   # where the box may go
+    wait         # frames to pause before moving on
 
 # blocks: solid tiles that can be destroyed. While gone, their tile in level.data is ' '.
 # boom block: standing on it or shooting it lights a fuse; it explodes,
@@ -60,6 +64,8 @@ const HELMET_SCORE   = 100
 const QUANTA_START   = 30
 const QUANTA_RESPAWN = 10   # paid on each respawn; all that's left if fewer
 const QUANTUM_SCORE  = 10
+const QUANTUM_MAGNET_RANGE = 32   # pixels
+const QUANTUM_MAGNET_SPEED = 32   # subpixels per frame, right next to the hero
 const QUANTUM_BONUS  = 50   # per quantum left over at the end of the game
 
 struct Level:
@@ -69,14 +75,13 @@ struct Level:
     spawn_x
     spawn_y
     tick
-    checkpoints: Vec[8]
+    checkpoints: Vec[10]
     checkpoint_count
     active_checkpoint: Vec*
     checkpoint_tick
-    platforms: Platform[8]
-    platform_count
-    blocks: Block[32]
-    pickups: Pickup[80]
+    platforms: Platform[10]
+    blocks: Block[100]
+    pickups: Pickup[100]
 
 var level: Level
 
@@ -109,7 +114,7 @@ func level_init(data: int*):
     level.checkpoint_count = 0
     for b in level.blocks: b.* = {}
     for p in level.pickups: p.* = {}
-    level.platform_count = 0
+    for p in level.platforms: p.* = {}
     for r = 0, level.h:
         for c = 0, level.w:
             var t = level_get_tile_at_cr(c, r)
@@ -123,22 +128,10 @@ func level_init(data: int*):
                 level_add_block(t == 'B' ? BLOCK_BOOM : BLOCK_TREASURE, c, r)
             elif t == '+' or t == '*':
                 level_add_pickup(t == '+' ? PICKUP_HELMET : PICKUP_QUANTUM, c * TS + 8, r * TS + 8)
-            elif t == 'V' and level_get_tile_at_cr(c - 1, r) != 'V':  # each run of V is one platform
-                if level.platform_count >= level.platforms.len:
-                    print("error: not enough platforms")
-                    continue
+            elif (t == 'V' or t == 'H') and level_get_tile_at_cr(c - 1, r) != t:  # each run is one platform
                 var n = 1
-                while level_get_tile_at_cr(c + n, r) == 'V': n += 1
-                var p = &level.platforms[level.platform_count]
-                level.platform_count += 1
-                p.*  = {}
-                p.x  = c * TS
-                p.w  = n * TS
-                p.y  = r * TS
-                p.sy = p.y * SP
-                p.vy = -PLATFORM_SPEED
-                p.top    = level_platform_end(c, n, r, -1) * TS * SP
-                p.bottom = level_platform_end(c, n, r, 1) * TS * SP
+                while level_get_tile_at_cr(c + n, r) == t: n += 1
+                level_add_platform(t == 'V' ? PLATFORM_V : PLATFORM_H, c, r, n)
 
 
 func level_add_block(type, c, r):
@@ -173,20 +166,50 @@ func level_drop_pickup(type, x, y):
     p.ty  = p.box.y + rand(-4, 12)
 
 
-# last row a platform at row r, columns c to c + n - 1, can reach going in direction dr
-func level_platform_end(c, n, r, dr) int:
-    while true:
-        var stop = false
-        for i = c, c + n:
-            var t = level_get_tile_at_cr(i, r + dr)
-            if level_is_solid(t): return r
-            if t == '.': stop = true
-        r += dr
-        if stop: return r
+func level_add_platform(type, c, r, n):
+    for p in level.platforms:
+        if p.type != PLATFORM_NONE: continue
+        p.* = { type, { c * TS, r * TS, n * TS, 1 }, c * TS * SP, r * TS * SP }
+        p.range = p.box
+        if type == PLATFORM_V:
+            var up   = level_platform_reach(c, r, n, 0, -1)
+            var down = level_platform_reach(c, r, n, 0, 1)
+            p.range.y -= up * TS
+            p.range.h += (up + down) * TS
+            p.vy = PLATFORM_SPEED
+        else:
+            var left  = level_platform_reach(c, r, n, -1, 0)
+            var right = level_platform_reach(c, r, n, 1, 0)
+            p.range.x -= left * TS
+            p.range.w += (left + right) * TS
+            p.vx = PLATFORM_SPEED
+        return
+    print("error: not enough platforms")
 
+# how many tiles the platform at row r, columns c to c + n - 1, can travel in direction (dc, dr):
+# onto the next '.'; up and down also into a solid tile (it disappears into it: walls are drawn
+# over it), sideways only up to one
+func level_platform_reach(c, r, n, dc, dr) int:
+    var k = 0
+    while true:
+        k += 1
+        var stop = false
+        for i = 0, dr ? n : 1:   # the tiles it moves into: the next row, or the next column
+            var t = level_get_tile_at_cr(c + i, r + k * dr)
+            if dc: t = level_get_tile_at_cr((dc < 0 ? c : c + n - 1) + k * dc, r)
+            if level_is_solid(t):
+                if dc: return k - 1
+                stop = true
+            if t == '.': stop = true
+        if stop: return k
+
+
+func level_platform_carry(sx: int*, sy: int*, box: Box*, dx, dy):
+    if dx: level_move_box_x(sx, box, dx * SP)
+    if dy: level_move_box_y(sy, box, dy * SP, true)
 
 func level_platform_supports(p: Platform*, b: Box*) int:
-    return b.y + b.h == p.y and b.x < p.x + p.w and b.x + b.w > p.x
+    return b.y + b.h == p.box.y and b.x < p.box.x + p.box.w and b.x + b.w > p.box.x
 
 
 func level_get_tile_at_cr(c, r):
@@ -292,12 +315,14 @@ func level_test_down(x, y, py) int:
         t == '^' and (y / TS) > (py / TS)):
         o = -1 - (y % TS)
     # platforms are jump-through: only land when moving down from above.
-    # py <= p.y, not <: a rising platform (1 px per frame at most) may have just moved into py
-    for i = 0, level.platform_count:
-        var p = &level.platforms[i]
-        # no min() here: callers use min(level_test_down(…), level_test_down(…))
-        if x >= p.x and x < p.x + p.w and py < y and py <= p.y and y >= p.y and p.y - 1 - y < o:
-            o = p.y - 1 - y
+    # A rising platform (1 px per frame at most) may have just moved into py: that counts as above too.
+    # Not for one going down: it would pop up whoever it sinks past (e.g. into the floor they stand on)
+    for p in level.platforms:
+        if p.type == PLATFORM_NONE: continue
+        var top = p.box.y
+        var above = py < top or py == top and p.vy < 0
+        if x >= p.box.x and x < p.box.x + p.box.w and py < y and above and y >= top and top - 1 - y < o:
+            o = top - 1 - y
     return o
 
 # Resolve axis motion for enemy boxes. Mutates sx/sy and box.x/box.y.
@@ -358,36 +383,42 @@ func level_move_box_y(sy: int*, box: Box*, dy, pass_platforms) int:
 
 func level_update():
     # moving platforms
-    for i = 0, level.platform_count:
-        var p = &level.platforms[i]
+    for p in level.platforms:
+        if p.type == PLATFORM_NONE: continue
         if p.wait > 0:
             p.wait -= 1
             continue
+        # at the end of the range it is heading for, turn around (checked before moving: it moves
+        # at most 1 pixel per frame, so it can't step out, even when it starts at an end)
+        var r = p.range
+        if (p.vx < 0 and p.box.x == r.x or p.vx > 0 and p.box.x + p.box.w == r.x + r.w or
+            p.vy < 0 and p.box.y == r.y or p.vy > 0 and p.box.y + p.box.h == r.y + r.h):
+            p.vx = -p.vx
+            p.vy = -p.vy
+            p.wait = PLATFORM_WAIT
+            continue
+        p.sx += p.vx
         p.sy += p.vy
-        if p.sy <= p.top:
-            p.sy = p.top
-            p.vy = PLATFORM_SPEED
-            p.wait = PLATFORM_WAIT
-        elif p.sy >= p.bottom:
-            p.sy = p.bottom
-            p.vy = -PLATFORM_SPEED
-            p.wait = PLATFORM_WAIT
-        var dy = p.sy / SP - p.y
-        if not dy: continue
+        var dx = p.sx / SP - p.box.x
+        var dy = p.sy / SP - p.box.y
+        if not dx and not dy: continue
 
-        # carry whatever stands on it
+        # carry whatever stands on it; walls and ceilings stop it (the platform moves on into them)
         if hero.state == HERO_STATE_NORMAL and hero.on_ground and level_platform_supports(p, hero.box):
-            hero.sy += dy * SP
-            hero.box.y += dy
-            for c in cape:   # previous positions too, so the move adds no swing
-                c.sy  += dy * SP
-                c.psy += dy * SP
+            var x = hero.box.x
+            var y = hero.box.y
+            level_platform_carry(hero.sx, hero.sy, hero.box, dx, dy)
+            for c in cape:   # sideways only half: the cape trails a little, as in a light breeze
+                c.sx  += (hero.box.x - x) * SP / 2
+                c.psx += (hero.box.x - x) * SP / 2
+                c.sy  += (hero.box.y - y) * SP   # up and down: previous positions too, so the move adds no swing
+                c.psy += (hero.box.y - y) * SP
 
         for e in enemies:
             if e.state == ENEMY_STATE_NORMAL and e.on_ground and level_platform_supports(p, e.box):
-                e.sy += dy * SP
-                e.box.y += dy
-        p.y += dy
+                level_platform_carry(e.sx, e.sy, e.box, dx, dy)
+        p.box.x += dx
+        p.box.y += dy
 
     # blocks
     for b in level.blocks:
@@ -438,12 +469,32 @@ func level_update():
             if p.ttl == 0:
                 p.type = PICKUP_NONE
                 continue
-            if p.ttl > PICKUP_DROP_FRAMES - PICKUP_FLY_FRAMES:   # flying, like debris
-                if level_move_box_x(&p.sx, &p.box, p.vx): p.vx *= -1
-                p.vy += GRAVITY / 2
-                if level_move_box_y(&p.sy, &p.box, p.vy, false): p.vy = p.vy * -7 / 10
-                # back down at its target height: stop dead
-                if p.vy > 0 and p.box.y >= p.ty: p.ttl = PICKUP_DROP_FRAMES - PICKUP_FLY_FRAMES
+
+        # velocity: a dropped one flies like debris at first; then it hovers, except that quanta
+        # are a bit magnetic: near the hero they drift toward it, the closer the faster
+        var flying = p.ttl > PICKUP_DROP_FRAMES - PICKUP_FLY_FRAMES
+        if flying: p.vy += GRAVITY / 2
+        else:
+            p.vx = 0
+            p.vy = 0
+            if p.type == PICKUP_QUANTUM and hero.state == HERO_STATE_NORMAL:
+                var dx = box_center_x(hero.box) - box_center_x(p.box)
+                var dy = box_center_y(hero.box) - box_center_y(p.box)
+                var d  = sqrt(dx * dx + dy * dy)
+                if d < QUANTUM_MAGNET_RANGE:
+                    var v = QUANTUM_MAGNET_SPEED * (QUANTUM_MAGNET_RANGE - d) / QUANTUM_MAGNET_RANGE
+                    p.vx = dx * v / max(d, 1)
+                    p.vy = dy * v / max(d, 1)
+
+        # move; flying, it bounces off walls and lands on platforms
+        var hit_x = level_move_box_x(&p.sx, &p.box, p.vx)
+        var hit_y = level_move_box_y(&p.sy, &p.box, p.vy, not flying)
+        if flying:
+            if hit_x: p.vx *= -1
+            if hit_y: p.vy = p.vy * -7 / 10
+            # back down at its target height: stop dead
+            if p.vy > 0 and p.box.y >= p.ty: p.ttl = PICKUP_DROP_FRAMES - PICKUP_FLY_FRAMES
+
         if hero.state != HERO_STATE_NORMAL or not box_intersects(p.box, hero.box): continue
         if p.type == PICKUP_HELMET:
             hero.score += HELMET_SCORE
@@ -522,10 +573,10 @@ func level_draw_background():
                     var color = q >= i ? 0 : q > 10 ? 3 : 6
                     if color: sprite(x, y + 31 - i, TS, 1, 0, 32 + color, 0)
 
-    for i = 0, level.platform_count:
-        var p = &level.platforms[i]
-        for x = 0, p.w / TS:
-            camera_sprite(p.x + x * TS, p.y, TS, TS, 4 * TS, 48, 0)
+    for p in level.platforms:
+        if p.type == PLATFORM_NONE: continue
+        for x = 0, p.box.w / TS:
+            camera_sprite(p.box.x + x * TS, p.box.y, TS, TS, 4 * TS, 48, 0)
 
     if level.active_checkpoint:
         var x = level.active_checkpoint.x
