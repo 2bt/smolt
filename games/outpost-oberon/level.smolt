@@ -29,13 +29,13 @@ struct Block:
     y
     countdown   # boom, while 'B': frames until it explodes, 0 = fuse not lit; while gone: frames until it is back
                 # treasure: frames of the white hit flash
-    hp          # treasure: shots left
+    hp          # treasure: hp left, in hero bullet power
 
 const BOOM_BLOCK_FUSE      = 96   # after the hero stands on it; 4 fuse loops of 24 frames
 const BOOM_BLOCK_SHOT_FUSE = 6    # after it was shot or a neighbour exploded
 const BOOM_BLOCK_RESPAWN   = 240  # frames until it is back, including:
 const BOOM_BLOCK_GROW      = 24   # the last frames, where it grows back
-const TREASURE_HP          = 4    # shots until it breaks
+const TREASURE_HP          = 8    # 4 normal shots
 
 const PLATFORM_SPEED = 8   # subpixels per frame: half a pixel
 const PLATFORM_WAIT  = 60  # pause at each end, in frames
@@ -223,16 +223,16 @@ func level_is_solid(t):
     return t == '0' or t == 'X' or t == 'B' or t == 'T'
 
 # something hit the block at (x, y), if there is one: a boom block lights its fuse;
-# a treasure block takes a shot, but only from the hero
-func level_hit_block(x, y, by_hero):
+# a treasure block takes damage, but only from the hero: power is a hero bullet's, else 0
+func level_hit_block(x, y, power):
     var i = x / TS + y / TS * level.w
     if level.data[i] == ' ': return   # gone (or no block at all)
     for b in level.blocks:
         if b.i != i: continue
         if b.type == BLOCK_BOOM:
             if b.countdown == 0 or b.countdown > BOOM_BLOCK_SHOT_FUSE: b.countdown = BOOM_BLOCK_SHOT_FUSE
-        elif b.type == BLOCK_TREASURE and by_hero:
-            b.hp -= 1
+        elif b.type == BLOCK_TREASURE and power > 0:
+            b.hp -= power
             b.countdown = 3
             if b.hp > 0:
                 audio_play_sfx(SFX_ENEMY_HIT)
@@ -446,10 +446,10 @@ func level_update():
                         if e.state == ENEMY_STATE_NORMAL and box_intersects(blast, e.box): enemy_kill(e)
                     for k = 0, 16: particle_spawn(PARTICLE_TYPE_DEBRIS, b.x + rand(0, TS - 1), b.y + rand(0, TS - 1))
                     # chain reaction
-                    level_hit_block(b.x - TS, b.y, false)
-                    level_hit_block(b.x + TS, b.y, false)
-                    level_hit_block(b.x, b.y - TS, false)
-                    level_hit_block(b.x, b.y + TS, false)
+                    level_hit_block(b.x - TS, b.y, 0)
+                    level_hit_block(b.x + TS, b.y, 0)
+                    level_hit_block(b.x, b.y - TS, 0)
+                    level_hit_block(b.x, b.y + TS, 0)
         else:
             b.countdown -= 1
             if b.countdown == 0:

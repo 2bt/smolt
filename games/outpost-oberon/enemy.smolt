@@ -69,7 +69,7 @@ func enemy_bullet_update_all():
             if hit_y == DIR_UP:    py = b.box.y
             if hit_y == DIR_DOWN:  py = b.box.y + b.box.h - 1
             level_hit_block(px + (hit_x == DIR_RIGHT) - (hit_x == DIR_LEFT),
-                            py + (hit_y == DIR_DOWN) - (hit_y == DIR_UP), false)
+                            py + (hit_y == DIR_DOWN) - (hit_y == DIR_UP), 0)
             particle_spawn(PARTICLE_TYPE_FLASH, px, py)
             audio_play_sfx(SFX_BULLET_WALL)
             continue
@@ -157,7 +157,7 @@ func enemy_spawn(type, x, y):
         if type == ENEMY_TYPE_PATROL:
             e.box.w           = 8
             e.box.h           = 17
-            e.hp              = 2
+            e.hp              = 4
             e.pace_countdown  = rand(30, 80)
             e.shoot_countdown = rand(0, 100)
             e.on_ground       = true  # spawns standing; platforms carry it before it first updates
@@ -165,20 +165,20 @@ func enemy_spawn(type, x, y):
         elif type == ENEMY_TYPE_BUGGER:
             e.box.w     = 12
             e.box.h     = 11
-            e.hp        = 2
+            e.hp        = 4
             enemy_bugger_set_mode(e, BUGGER_MODE_SLEEP)
 
         elif type == ENEMY_TYPE_CANNON:
             e.box.w = 5
             e.box.h = 12
-            e.hp    = 3
+            e.hp    = 6
             e.facing_left = level_get_tile_at_cr(x / TS + 1, y / TS) == '0'
             e.shoot_countdown = rand(30, 90)
 
         elif type == ENEMY_TYPE_JELLY:
             e.box.w = 10
             e.box.h = 10
-            e.hp    = 1
+            e.hp    = 2
             e.vy    = JELLY_WAVE
             e.shoot_countdown = rand(40, 100)
 
@@ -303,9 +303,10 @@ func enemy_draw_all():
         # camera_sprite(e.box.x, e.box.y, e.box.w, e.box.h, 0, 480, 0)
 
 
-func enemy_hurt(e: Enemy*):
+func enemy_hurt(e: Enemy*, power):
     if e.state != ENEMY_STATE_NORMAL: return
-    e.hp -= 1
+    var hp = e.hp
+    e.hp -= power
     e.hit_countdown = 3
 
     if e.type == ENEMY_TYPE_PATROL:
@@ -319,7 +320,8 @@ func enemy_hurt(e: Enemy*):
         enemy_bugger_set_mode(e, BUGGER_MODE_FOLLOW)
 
     elif e.type == ENEMY_TYPE_PINATA:
-        level_drop_pickup(PICKUP_QUANTUM, box_center_x(e.box), box_center_y(e.box))
+        # a quantum for every even hp it reaches going down (6, 4, 2, 0), however the damage is split
+        for i = 0, (hp + 1) / 2 - (max(e.hp, 0) + 1) / 2: level_drop_pickup(PICKUP_QUANTUM, box_center_x(e.box), box_center_y(e.box))
 
     if e.hp <= 0: enemy_kill(e)
     else: audio_play_sfx(SFX_ENEMY_HIT)
@@ -689,7 +691,7 @@ func enemy_jelly_update(e: Enemy*):
 # piñata
 # ---------------------------------------------------------------------------
 
-const PINATA_HP    = 4
+const PINATA_HP    = 8
 const PINATA_SPEED = 10
 const PINATA_WAVE  = 16
 

@@ -19,15 +19,17 @@ struct HeroBullet:
     box: Box
     sx
     vx
+    power   # damage: hp it takes from an enemy or a treasure block
 
-var hero_bullets: HeroBullet[8]
+
+var hero_bullets: HeroBullet[24]
 
 
-# x,y = top-left of hit box
-func hero_bullet_spawn(x, y, facing_left):
+# x,y = top-left of hit box; the stronger, the longer: power 2 is 6 pixels, power 1 is 4
+func hero_bullet_spawn(x, y, facing_left, power):
     for b in hero_bullets:
         if b.alive: continue
-        b.* = { true, { x, y, 6, 1 }, x * SP, facing_left ? -3 * SP : 3 * SP }
+        b.* = { true, { x, y, power == 2 ? 6 : 3, 1 }, x * SP, facing_left ? -3 * SP : 3 * SP, power }
         return
 
 
@@ -48,14 +50,14 @@ func hero_bullet_update_all():
             var px = hit == DIR_LEFT ? b.box.x : b.box.x + b.box.w - 1
             particle_spawn(PARTICLE_TYPE_FLASH, px, b.box.y)
             audio_play_sfx(SFX_BULLET_WALL)   # first: a block's own sound replaces it
-            level_hit_block(hit == DIR_LEFT ? px - 1 : px + 1, b.box.y, true)
+            level_hit_block(hit == DIR_LEFT ? px - 1 : px + 1, b.box.y, b.power)
             continue
 
         for e in enemies:
             if e.state != ENEMY_STATE_NORMAL: continue
             if box_intersects(e.box, b.box):
                 b.alive = false
-                enemy_hurt(e)
+                enemy_hurt(e, b.power)
                 var px = b.vx < 0 ? b.box.x : b.box.x + b.box.w - 1
                 for i = 0, 3: particle_spawn(PARTICLE_TYPE_DEBRIS, px, b.box.y)
                 break
@@ -64,7 +66,7 @@ func hero_bullet_update_all():
 func hero_bullet_draw_all():
     for b in hero_bullets:
         if not b.alive: continue
-        camera_sprite(b.box.x, b.box.y, 6, 1, 0, 32 + 1, 0)
+        camera_sprite(b.box.x, b.box.y, b.box.w, 1, 0, 32 + 1, 0)
 
 
 struct Hero:
@@ -360,8 +362,17 @@ func hero_update():
         hero.shoot_countdown = 20
         audio_play_sfx(SFX_HERO_SHOOT)
 
+
         var bx = hero.facing_left ? x - 1 : x + 3
-        hero_bullet_spawn(bx, y + 4, hero.facing_left)
+        var by = y + 4
+
+        hero_bullet_spawn(bx, by, hero.facing_left, 2)
+        if hero.helmet:
+            # triple shot: two weaker bullets above and below, a little behind
+            if hero.facing_left: bx += 4
+            else:                bx -= 1
+            hero_bullet_spawn(bx, by - 4, hero.facing_left, 1)
+            hero_bullet_spawn(bx, by + 4, hero.facing_left, 1)
 
     # animation
     hero.frame = 0
