@@ -31,9 +31,7 @@ var SFX_BOOM_BEEP      = "@3 v40 d4 W128 P=96,,"
 var SFX_HELMET_LOST    = "@1 d10 N=80|,+-4,+-4,+-4,"
 var SFX_QUANTUM_PAID   = "@1 v32 d2 W64 P=79,=72,3"
 var SFX_PICKUP_QUANTUM = "@3 v40 d4 W64 P|=76,,=83,,=90,,"
-
-var SFX_PICKUP_HELMET  = "@3 a2d7 PW10w20|=78,,,=73,,,=71,,,=70,,,"
-
+var SFX_PICKUP_HELMET  = "@3 a2d7 PW10w20|=70,,,=71,,,=73,,,=78,,,"
 var SFX_CHECKPOINT     = "@3 v72 l99 a5d10 T=44|,,+7,,+8,,+-14"
 var SFX_GAME_OVER = "
 @0 d12 s64 r10 l4 T|=48,4=40,4=32,4=24,4

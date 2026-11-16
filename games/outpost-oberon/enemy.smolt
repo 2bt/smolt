@@ -334,7 +334,9 @@ func enemy_kill(e: Enemy*):
     audio_play_sfx(SFX_EXPLOSION)
     # the piñata bursts; every other enemy drops one
     var n = e.type == ENEMY_TYPE_PINATA ? 2 : 1
-    for i = 0, n: level_drop_pickup(PICKUP_QUANTUM, box_center_x(e.box), box_center_y(e.box))
+    var x = box_center_x(e.box)
+    if e.type == ENEMY_TYPE_CANNON: x += e.facing_left ? -4 : 4   # it's thin and flush with its wall
+    for i = 0, n: level_drop_pickup(PICKUP_QUANTUM, x, box_center_y(e.box))
 
 
 
