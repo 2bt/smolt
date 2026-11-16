@@ -105,6 +105,11 @@ func camera_return_toward_spawn() int:
 # game loop
 # ---------------------------------------------------------------------------
 
+const TITLE_X = 70   # the logo on screen
+const TITLE_Y = 44
+const TITLE_W = 112
+const TITLE_H = 60
+
 func game_init():
     game_set_state(GAME_STATE_TITLE)
 
@@ -164,6 +169,9 @@ func game_update():
         level_update()
         enemy_update_all()
         enemy_bullet_update_all()
+        if level.tick > (TITLE_H + 16) * 2 and level.tick % 8 == 0:
+            particle_spawn(PARTICLE_TYPE_SPARKLE, camera.box.x + TITLE_X - 4 + rand(0, TITLE_W - 1 + 8),
+                                                  camera.box.y + TITLE_Y - 4 + rand(0, TITLE_H - 1 + 8))
         particle_update_all()
 
         if btnp(BTN_A) or btnp(BTN_B):
@@ -221,12 +229,12 @@ func game_draw():
 
         enemy_draw_all()
         enemy_bullet_draw_all()
-        particle_draw_all()
 
-        # title
-        for i = 0, 60:
+        # title, revealed line by line
+        for i = 0, TITLE_H:
             if i + (i & 7) < level.tick / 2 - 8:
-                sprite(70, 44 + i, 112, 1, 256, 448 + i, 0)
+                sprite(TITLE_X, TITLE_Y + i, TITLE_W, 1, 256, 448 + i, 0)
+        particle_draw_all()
 
         level_draw_walls()
 

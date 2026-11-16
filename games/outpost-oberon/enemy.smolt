@@ -126,11 +126,10 @@ struct Enemy:
     aim_countdown
 
     # jelly
-    home_sy
+    charge: Particle*
 
     # piñata: turns around this far from its spawn point
     home_sx
-    charge: Particle*
 
 var enemies: Enemy[64]
 
@@ -180,8 +179,7 @@ func enemy_spawn(type, x, y):
             e.box.w = 10
             e.box.h = 10
             e.hp    = 1
-            e.vx    = 1
-            e.vy    = JELLY_SPEED
+            e.vy    = JELLY_WAVE
             e.shoot_countdown = rand(40, 100)
 
         elif type == ENEMY_TYPE_PINATA:
@@ -633,18 +631,14 @@ func enemy_cannon_update(e: Enemy*):
 # ---------------------------------------------------------------------------
 const JELLY_AIM_FRAMES    = 25
 const JELLY_COOLDOWN      = 120
-const JELLY_SPEED         = 34
-const JELLY_MAX_SPEED     = 10
+const JELLY_WAVE          = 53   # vy swings between +-this, 1 per frame: 106 frames per half wave
+const JELLY_MAX_SPEED     = 6    # moves at most this fast: it glides through the middle of the wave
 
 func enemy_jelly_update(e: Enemy*):
+    e.frame = e.anim_tick / 5 % 5
+    e.vy += e.anim_tick / (JELLY_WAVE * 2) % 2 ? 1 : -1
+    level_move_box_y(&e.sy, &e.box, clamp(e.vy, -JELLY_MAX_SPEED, JELLY_MAX_SPEED), true)
     e.anim_tick += 1
-    if e.anim_tick % 3:
-        e.vy += e.vx
-        if abs(e.vy) > JELLY_SPEED: e.vx = -e.vx
-        e.sy += clamp(e.vy, -JELLY_MAX_SPEED, JELLY_MAX_SPEED)
-        e.box.x = e.sx / SP
-        e.box.y = e.sy / SP
-        e.frame = e.anim_tick / 5 % 5
 
     var cx = box_center_x(e.box)
     var cy = box_center_y(e.box)

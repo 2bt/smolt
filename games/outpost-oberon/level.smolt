@@ -142,7 +142,6 @@ func level_init(data: int*):
 
 # a placed pickup, centred on (x, y)
 func level_add_pickup(type, x, y) Pickup*:
-    var s = type == PICKUP_HELMET ? 8 : 6
     for p in level.pickups:
         if p.type != PICKUP_NONE: continue
         p.* = {
