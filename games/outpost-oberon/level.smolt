@@ -146,10 +146,7 @@ func level_add_block(type, c, r):
 func level_add_pickup(type, x, y) Pickup*:
     for p in level.pickups:
         if p.type != PICKUP_NONE: continue
-        p.* = {
-            type,
-            { x - 4, y - 4, 8, 8 },
-        }
+        p.* = { type, { x - 4, y - 4, 8, 8 } }
         p.sx = p.box.x * SP
         p.sy = p.box.y * SP
         return p
@@ -533,12 +530,9 @@ const PERIOD_H = 1000
 
 func level_draw_background():
     # hashed starfield (deterministic; period 1000×1000)
-    # var ox = camera.box.x * 4 / 7
-    # var oy = camera.box.y * 4 / 7
-    var ox = camera.box.x /3
-    var oy = camera.box.y /3
+    var ox = camera.box.x / 3
+    var oy = camera.box.y / 3
     for i = 0, STAR_N:
-        # quadratic mixes — linear LCG makes a visible lattice mod PERIOD
         var px = (i * (i * 7919 + 104729) + 12345) % PERIOD_W
         var py = (i * (i * 6971 + 224737) + 67890) % PERIOD_H
         var sx = (px - ox) % PERIOD_W
@@ -615,12 +609,11 @@ func level_draw_walls():
         if p.type == PICKUP_NONE or (p.ttl > 0 and p.ttl < PICKUP_BLINK_FRAMES and p.ttl & 4): continue
         var x = p.box.x
         var y = p.box.y
-        # dropped ones bob once they've stopped: -1 0 1 0
-        if p.ttl > 0 and p.ttl <= PICKUP_DROP_FRAMES - PICKUP_FLY_FRAMES: y += 1 - abs((level.tick + x) / 12 % 4 - 2)
         if p.type == PICKUP_HELMET:
             camera_sprite(x, y, 8, 8, level.tick / 6 % 8 * 8, 224, 0)
         else:
             camera_sprite(x, y, 8, 8, level.tick / 4 % 16 * 8, 240, 0)
+
 
     for b in level.blocks:
         if b.type == BLOCK_TREASURE:
