@@ -1,9 +1,10 @@
 #!/bin/sh
 # usage: ./gif.sh recording-DIR [out.gif]
 # 60 fps frames -> 30 fps gif, 2x nearest-neighbour upscale
+# takes every png in the directory in name order, so frames may be deleted to trim it
 set -e
 out=${2:-$1.gif}
-ffmpeg -loglevel error -y -framerate 60 -i "$1/%05d.png" \
+ffmpeg -loglevel error -y -framerate 60 -pattern_type glob -i "$1/*.png" \
     -vf "fps=30,scale=iw*2:ih*2:flags=neighbor,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=none" \
     "$out"
 gifsicle -O3 --batch "$out"
