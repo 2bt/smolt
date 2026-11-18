@@ -128,10 +128,11 @@ const BTN_MENU = 6;
 const INT_PRINT = 1;
 const INT_SPRITE = 2;
 const INT_SOUND = 3;
-const INT_RAND = 4;
-const INT_SQRT = 5;
-const INT_SAVE = 6;
-const INT_LOAD = 7;
+const INT_FILTER = 4;
+const INT_SAVE = 5;
+const INT_LOAD = 6;
+const INT_RAND = 7;
+const INT_SQRT = 8;
 
 const FLIP_H = 1;
 const FLIP_V = 2;
@@ -521,6 +522,7 @@ class SmoltAPU extends AudioWorkletProcessor {
     super();
     this.voices = Array.from({ length: VOICES }, () => ({
       pitch: 0, pw: 0, vol: 0, vol_target: 0, wave: 0, phase: 0, noise: 0, shift: 1234567,
+      filter: 0, cutoff: 0, low: 0, band: 0,
     }));
     this.queue = [null, null];
     this.read = 0;
@@ -557,8 +559,12 @@ class SmoltAPU extends AudioWorkletProcessor {
       const p = Math.min(800, Math.max(0, m.pitch));
       v.pitch = Math.pow(2, (p * (1 / 8) - 57) * (1 / 12)) * (440 / sampleRate);
       v.pw = (m.pw % 1024) / 1024;
-      v.vol_target = Math.min(1, Math.max(0, m.vol * (1 / 256))) * 0.5;
+      v.vol_target = Math.min(1, Math.max(0, m.vol * (1 / 1024))) * 0.125;
       v.wave = m.wave;
+      v.filter = m.filter & 7;
+      // cutoff 0..1023 -> 30 Hz .. 8 kHz, linear like the SID (more is unstable at 44.1 kHz)
+      const fc = 30 + Math.min(1023, Math.max(0, m.cutoff)) * (7970 / 1023);
+      v.cutoff = 2 * Math.sin(Math.PI * fc / sampleRate);
       if (v.wave === NOISE) v.pitch *= 8;
     }
   }
@@ -583,7 +589,15 @@ class SmoltAPU extends AudioWorkletProcessor {
           s = v.noise;
         }
         v.vol += (v.vol_target - v.vol) * 0.02;
-        x += s * v.vol;
+        s *= v.vol; // filter after volume, like the SID
+        if (v.filter) {
+          // Chamberlin SVF, fixed resonance
+          const high = s - 0.6 * v.band - v.low;
+          v.band += v.cutoff * high;
+          v.low += v.cutoff * v.band;
+          s = (v.filter & 1 ? v.low : 0) + (v.filter & 2 ? v.band : 0) + (v.filter & 4 ? high : 0);
+        }
+        x += s;
       }
       out[i] = x;
       this.sample++;
@@ -662,13 +676,16 @@ function interrupt(n) {
   } else if (n === INT_SOUND) {
     const i = mem[10];
     if (i >= 0 && i < VOICES) {
-      voiceInputs[i] = { pitch: mem[11], pw: mem[12], vol: mem[13], wave: mem[14] };
+      Object.assign(voiceInputs[i], { pitch: mem[11], pw: mem[12], vol: mem[13], wave: mem[14] });
     }
+  } else if (n === INT_FILTER) {
+    const i = mem[15];
+    if (i >= 0 && i < VOICES) Object.assign(voiceInputs[i], { filter: mem[16], cutoff: mem[17] });
   } else if (n === INT_RAND) {
-    const lo = mem[15], hi = mem[16];
+    const lo = mem[20], hi = mem[21];
     mem[0] = hi < lo ? lo : lo + Math.floor(Math.random() * (hi - lo + 1));
   } else if (n === INT_SQRT) {
-    mem[0] = Math.sqrt(mem[17]) | 0;
+    mem[0] = Math.sqrt(mem[22]) | 0;
   } else if (n === INT_SAVE || n === INT_LOAD) {
     // one save slot per game; ret = words written/read
     const addr = mem[18], len = mem[19];
@@ -808,7 +825,7 @@ function frame(timestamp) {
       ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
       runVM(mem, code);
       if (apuNode) apuNode.port.postMessage({ type: "voices", voices: voiceInputs });
-      voiceInputs = Array.from({ length: VOICES }, () => ({ pitch: 0, pw: 0, vol: 0, wave: 0 }));
+      voiceInputs = Array.from({ length: VOICES }, () => ({ pitch: 0, pw: 0, vol: 0, wave: 0, filter: 0, cutoff: 0 }));
     } catch (e) {
       showError(String(e.message || e));
       stopGame();
@@ -849,7 +866,7 @@ async function startGame(gameId) {
     const codeBuf = await codeRes.arrayBuffer();
     sprites = await createImageBitmap(await spriteRes.blob());
     ({ mem, code } = loadProgram(new Uint8Array(codeBuf)));
-    voiceInputs = Array.from({ length: VOICES }, () => ({ pitch: 0, pw: 0, vol: 0, wave: 0 }));
+    voiceInputs = Array.from({ length: VOICES }, () => ({ pitch: 0, pw: 0, vol: 0, wave: 0, filter: 0, cutoff: 0 }));
     document.body.classList.add("playing");
     requestAnimationFrame(padLayout);
     setGameQuery(gameId);

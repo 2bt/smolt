@@ -97,7 +97,7 @@ func tick():
 * `btn()` is "held", `btnp()` is "just pressed" (`input_update()` at the end of `tick()` makes that work).
 * `sprite(x, y, w, h, s, t, flip)` copies the `w`×`h` rectangle at (`s`, `t`) of `sprite.png` to the screen.
 * `draw_text()` uses the font in the top 256×24 pixels of `sprite.png` (ASCII 32–127, 8×8 each).
-* `audio_play_sfx()` plays a sound effect string (`d` decay, `W` pulse width, `P` pulse wave, `=72` pitch, `,` wait a frame, `,20` wait 20 frames).
+* `audio_play_sfx()` plays a sound effect string (`d` decay, `W` pulse width, `P` pulse wave, `F` filter mode (1 LP, 2 BP, 4 HP), `C` cutoff 0–1023, `c` cutoff slide per frame, `=72` pitch, `,` wait a frame, `,20` wait 20 frames).
 
 Run it with `./run.sh hello`. To start your own game, copy `games/hello` to `games/<name>`.
 
@@ -146,11 +146,12 @@ Interrupts (`asm "int #N"`):
 |---|------|------|--------|
 | 1 | print | `msg` (`int*`) | zero-terminated chars; newline after |
 | 2 | sprite | `x y w h s t flip` | blit from `sprite.png` |
-| 3 | sound | `i pitch pw vol wave` | voice `i` |
-| 4 | rand | `lo hi` | result → `mem[0]` |
-| 5 | sqrt | `a` | result → `mem[0]` |
-| 6 | save | `addr len` | write `len` words from `addr` to the game's save slot; words written → `mem[0]` |
-| 7 | load | `addr len` | read up to `len` words into `addr`; words read → `mem[0]` (0 = no save) |
+| 3 | sound | `i pitch pw vol wave` | voice `i`; `pw` and `vol` 0–1023 |
+| 4 | filter | `i mode cutoff` | voice `i`; `mode` = `FILTER_LP` \| `FILTER_BP` \| `FILTER_HP`, 0 = dry; `cutoff` 0–1023, linear 30 Hz–8 kHz |
+| 5 | save | `addr len` | write `len` words from `addr` to the game's save slot; words written → `mem[0]` |
+| 6 | load | `addr len` | read up to `len` words into `addr`; words read → `mem[0]` (0 = no save) |
+| 7 | rand | `lo hi` | result → `mem[0]` |
+| 8 | sqrt | `a` | result → `mem[0]` |
 
 Screen is 320×180.
 

@@ -25,10 +25,11 @@ enum {
     INT_PRINT = 1,
     INT_SPRITE,
     INT_SOUND,
-    INT_RAND,
-    INT_SQRT,
+    INT_FILTER,
     INT_SAVE,
     INT_LOAD,
+    INT_RAND,
+    INT_SQRT,
 };
 
 
@@ -40,11 +41,12 @@ struct MemMap {
     struct { int32_t msg; } print;                                          // @2
     struct { int32_t x, y, w, h, s, t, flip; } sprite;                      // @3
     struct { int32_t i, pitch, pw, vol, wave; } sound;                      // @10
-    struct { int32_t lo, hi; } rand;                                        // @15
-    struct { int32_t a; } sqrt;                                             // @17
+    struct { int32_t i, mode, cutoff; } filter;                             // @15
     struct { int32_t addr, len; } save;                                     // @18 save + load
+    struct { int32_t lo, hi; } rand;                                        // @20
+    struct { int32_t a; } sqrt;                                             // @22
 };
-static_assert(offsetof(MemMap, save) == 18 * 4, "MemMap must match lib/api.smolt");
+static_assert(offsetof(MemMap, sqrt) == 22 * 4, "MemMap must match lib/api.smolt");
 
 
 SDL_Texture* load_texture(SDL_Renderer* renderer, std::string file) {
@@ -84,7 +86,18 @@ void interrupt(int32_t n) {
     else if (n == INT_SOUND) {
         int32_t i = mem.sound.i;
         if (i >= 0 && i < (int32_t)voice_inputs.size()) {
-            voice_inputs[i] = { mem.sound.pitch, mem.sound.pw, mem.sound.vol, mem.sound.wave };
+            APU::VoiceInput& v = voice_inputs[i];
+            v.pitch = mem.sound.pitch;
+            v.pw    = mem.sound.pw;
+            v.vol   = mem.sound.vol;
+            v.wave  = mem.sound.wave;
+        }
+    }
+    else if (n == INT_FILTER) {
+        int32_t i = mem.filter.i;
+        if (i >= 0 && i < (int32_t)voice_inputs.size()) {
+            voice_inputs[i].filter = mem.filter.mode;
+            voice_inputs[i].cutoff = mem.filter.cutoff;
         }
     }
     else if (n == INT_PRINT) {

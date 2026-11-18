@@ -21,6 +21,9 @@ struct AudioVoice:
     release
     vol
     wave
+    filter      # 1 LP | 2 BP | 4 HP, 0 = dry
+    cutoff      # 0..1023
+    cutoff_rate
     pitch       # 1/8 semitones
     abs_pitch   # music only: ignore the note pitch
     pw
@@ -118,6 +121,8 @@ func audio_voice_start(v: AudioVoice*, p: int*):
     v.sustain   = 0
     v.release   = 0
     v.vol       = 64
+    v.filter    = 0
+    v.cutoff_rate = 0
     v.pitch     = 0
     v.abs_pitch = false
     v.vib_pos   = 0
@@ -129,6 +134,7 @@ func audio_env_step(rate) int: return AUDIO_ENV_PEAK / (1 + (rate + 8) * rate * 
 func audio_voice_update(v: AudioVoice*):
     v.pw += v.pw_rate
     v.pw %= 1024
+    v.cutoff = clamp(v.cutoff + v.cutoff_rate, 0, 1023)
     v.vib_pos += v.vib_rate
     v.vib_pos %= 256
 
@@ -152,6 +158,9 @@ func audio_voice_update(v: AudioVoice*):
                 elif c == 'S': v.wave      = WAVE_SAW
                 elif c == 'P': v.wave      = WAVE_PULSE
                 elif c == 'N': v.wave      = WAVE_NOISE
+                elif c == 'F': v.filter    = audio_read_num(v.pos)
+                elif c == 'C': v.cutoff    = audio_read_num(v.pos)
+                elif c == 'c': v.cutoff_rate = audio_read_num(v.pos)
                 elif c == '=' or c == '~':
                     v.pitch     = audio_read_num(v.pos) * 8
                     v.abs_pitch = c == '='
@@ -253,8 +262,10 @@ func audio_update_music():
         var pitch = vc.pitch + (vc.abs_pitch ? 0 : v.pitch / 8) + audio_voice_vibrato(vc)
 
         # set APU registers
-        var vol = v.volume * vc.vol * vc.level / (AUDIO_ENV_PEAK * 64)
-        sound(v.index + 4, pitch, vc.pw, vol * audio_music_volume / 64, vc.wave)
+        # 0..1024: level (14 bit) * vol / 64 * volume / 64 * master / 64 / 16
+        var vol = vc.level * vc.vol / 64 * v.volume / 64 * audio_music_volume / 64 / 16
+        sound(v.index + 4, pitch, vc.pw, vol, vc.wave)
+        filter(v.index + 4, vc.filter, vc.cutoff)
 
 
 func audio_sfx_voice_free(v: AudioVoice*) int:
@@ -281,7 +292,8 @@ func audio_update_sfx():
         var v = &audio_sfx[i]
         if not v.pos: continue
         audio_voice_update(v)
-        sound(i, v.pitch + audio_voice_vibrato(v), v.pw, v.vol * v.level / AUDIO_ENV_PEAK * audio_sfx_volume / 64, v.wave)
+        sound(i, v.pitch + audio_voice_vibrato(v), v.pw, v.level * v.vol / 64 * audio_sfx_volume / 64 / 16, v.wave)
+        filter(i, v.filter, v.cutoff)
 
 func audio_update():
     audio_update_sfx()

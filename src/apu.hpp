@@ -17,6 +17,8 @@ public:
         int32_t pw;
         int32_t vol;
         int32_t wave;
+        int32_t filter; // LP|BP|HP, 0 = dry
+        int32_t cutoff; // 0..1023, linear 30 Hz .. 8 kHz
     };
 
     static constexpr int MIXRATE = 48000;
@@ -63,6 +65,7 @@ public:
 
 private:
     enum { TRI = 1, SAW, PULSE, NOISE };
+    enum { LP = 1, BP = 2, HP = 4 };
 
     void capture(float const* buf, size_t n) {
         std::lock_guard<std::mutex> lock(m_cap_mtx);
@@ -87,8 +90,11 @@ private:
             int p = std::clamp(m.pitch, 0, 800);
             v.pitch = std::exp2f((p * (1.0f / 8.0f) - 57.0f) * (1.0f / 12.0f)) * (440.0f / MIXRATE);
             v.pw         = (m.pw % 1024) * (1.0f / 1024.0f);
-            v.vol_target = std::clamp(m.vol * (1.0f / 256.0f), 0.0f, 1.0f) * 0.5f;
+            v.vol_target = std::clamp(m.vol * (1.0f / 1024.0f), 0.0f, 1.0f) * 0.125f;
             v.wave       = m.wave;
+            v.filter     = m.filter & 7;
+            float fc     = 30.0f + std::clamp(m.cutoff, 0, 1023) * (7970.0f / 1023.0f);
+            v.cutoff     = 2.0f * std::sin(float(M_PI) * fc / MIXRATE);
             if (v.wave == NOISE) v.pitch *= 8.0f;
         }
     }
@@ -120,7 +126,17 @@ private:
                     x = v.noise;
                 }
                 v.vol += (v.vol_target - v.vol) * 0.02f;
-                out[i] += x * v.vol;
+                x *= v.vol; // filter after volume, like the SID
+                if (v.filter) {
+                    // Chamberlin SVF, fixed resonance
+                    float high = x - 0.6f * v.band - v.low;
+                    v.band += v.cutoff * high;
+                    v.low  += v.cutoff * v.band;
+                    x = (v.filter & LP ? v.low  : 0.0f)
+                      + (v.filter & BP ? v.band : 0.0f)
+                      + (v.filter & HP ? high   : 0.0f);
+                }
+                out[i] += x;
             }
         }
     }
@@ -131,6 +147,10 @@ private:
         float    vol{};
         float    vol_target{};
         int      wave{};
+        int      filter{}; // LP|BP|HP, 0 = dry
+        float    cutoff{};
+        float    low{};
+        float    band{};
         float    phase{};
         float    noise{};
         uint32_t shift = 1234567;

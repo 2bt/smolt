@@ -41,8 +41,9 @@ var SFX_GAME_OVER = "
 
 
 var MUSIC_TITLE = "
-$0 s64 r3 N=77,PW100w2~0,180w-2
-$1 s64 r1 N=77,PW30w10~0
+#$0 s64 r3 N=77,PW100w2~0,180w-2
+$0 s64 r3 F4C700 N=77,F1C400 PW100w2~0,180w-2
+$1 s64 r1 F4C700 N=77,F1C400c-20 PW30w10~0
 $3 v40d20r2 N=94,PW128w2~0
 
 # thunder, kick, snare
