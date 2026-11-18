@@ -144,13 +144,13 @@ Interrupts (`asm "int #N"`):
 
 | N | Name | Args | Notes |
 |---|------|------|--------|
-| 1 | print | `msg` @ 2 (`int*`) | zero-terminated chars; newline after |
-| 2 | sprite | `x y w h s t flip` @ 3–9 | blit from `sprite.png` |
-| 3 | sound | `i pitch pw vol wave` @ 10–14 | voice `i` |
-| 4 | rand | `lo hi` @ 15–16 | result → `mem[0]` |
-| 5 | sqrt | `a` @ 17 | result → `mem[0]` |
-| 6 | save | `addr len` @ 18–19 | write `len` words from `addr` to the game's save slot; words written → `mem[0]` |
-| 7 | load | `addr len` @ 18–19 | read up to `len` words into `addr`; words read → `mem[0]` (0 = no save) |
+| 1 | print | `msg` (`int*`) | zero-terminated chars; newline after |
+| 2 | sprite | `x y w h s t flip` | blit from `sprite.png` |
+| 3 | sound | `i pitch pw vol wave` | voice `i` |
+| 4 | rand | `lo hi` | result → `mem[0]` |
+| 5 | sqrt | `a` | result → `mem[0]` |
+| 6 | save | `addr len` | write `len` words from `addr` to the game's save slot; words written → `mem[0]` |
+| 7 | load | `addr len` | read up to `len` words into `addr`; words read → `mem[0]` (0 = no save) |
 
 Screen is 320×180.
 
@@ -205,7 +205,6 @@ struct Point:
     y
 
 var origin: Point = {0, 0}
-var mem @ 100             # fixed address
 
 func add1(x) int:
     return x + 1
@@ -235,12 +234,12 @@ for p in items:     # p is a pointer walking the array
 ```
 
 `break` / `continue` work in loops.
-Ternary: `cond ? a : b`. GNU form `cond ?: b` reuses `cond`'s value (evaluated once).
+Ternary: `cond ? a : b`. GNU form `cond ?: b` reuses `cond`'s value.
 
 ### Expressions
 
 Operators (low → high binding): `or`, `and`, comparisons, `|`, `&` (bitwise), `+` `-`, `*` `/` `%`, then postfix / unary.
-`/` rounds down and `%` takes the divisor's sign, like Python (`-7 / 2 == -4`, `-7 % 3 == 2`); dividing by 0 divides by 1.
+`/` rounds down and `%` takes the divisor's sign, like Python, dividing by 0 divides by 1.
 
 * Unary: `-`, `not`, `&` (address of lvalue)
 * Assignments: `=`, `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`
@@ -257,8 +256,6 @@ q = p as int*            # pointer → pointer cast (reinterpret)
 a[i]                     # index array or pointer
 a.ptr / a.len / a.limit  # array address, length, one-past-end pointer
 ```
-
-No recursion (direct or mutual). Locals are not re-entrant.
 
 
 ## License

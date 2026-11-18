@@ -1,3 +1,11 @@
+const AUDIO_NOTE_EMPTY = -1
+const AUDIO_NOTE_OFF   = -2
+
+const AUDIO_ENV_RELEASE = 0
+const AUDIO_ENV_ATTACK  = 1
+const AUDIO_ENV_DECAY   = 2
+const AUDIO_ENV_PEAK    = 256 * 64
+
 # a voice plays an instrument (music) or a sound effect: envelope, wave, pitch, pw and vibrato,
 # driven by a command string like "v50 d8 P=60|,+3,"
 struct AudioVoice:
@@ -98,16 +106,6 @@ func audio_play_music(p: int*):
                 s.octave      = 4
 
 
-const AUDIO_NOTE_EMPTY = -1
-const AUDIO_NOTE_OFF   = -2
-
-const AUDIO_ENV_RELEASE = 0
-const AUDIO_ENV_ATTACK  = 1
-const AUDIO_ENV_DECAY   = 2
-const AUDIO_ENV_PEAK    = 256 * 64
-
-func audio_env_step(rate) int: return AUDIO_ENV_PEAK / (1 + (rate + 8) * rate * 15 / 128)
-
 func audio_voice_start(v: AudioVoice*, p: int*):
     v.pos       = p
     v.loop      = null
@@ -125,6 +123,8 @@ func audio_voice_start(v: AudioVoice*, p: int*):
     v.vib_pos   = 0
     v.vib_rate  = 0
     v.vib_depth = 0
+
+func audio_env_step(rate) int: return AUDIO_ENV_PEAK / (1 + (rate + 8) * rate * 15 / 128)
 
 func audio_voice_update(v: AudioVoice*):
     v.pw += v.pw_rate

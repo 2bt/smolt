@@ -21,6 +21,3 @@ enemies:
 
 other game elements:
 + keys?
-+ power ups?
-+ coins
-+ lives?
