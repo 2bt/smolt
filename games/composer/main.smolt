@@ -1,0 +1,131 @@
+# music player for composing: ./run.sh composer
+# left/right: pick a song, A: play from the start, B: stop
+include "lib/api.smolt"
+include "lib/util.smolt"
+include "lib/audio.smolt"
+include "../outpost-oberon/audio_data.smolt"
+
+
+
+var MUSIC_WIP = "
+$0 d10 s50 r7 v50 N=80,PW30w2~0
+$1 s64 r2 N=90,T=43,=40,=37,=32,=30,=27,=22,=14
+$2 d5 s64 N=70,PW128=44,=42s0,N=70,P=41,N=70
+$3 s64 r3 T=90,~0
+@0 q2 o2 i0 |
+c,14=,,c,=,c,>c,=,,<c,>*150c<,=,c--,*150c,=,,
+c,=,>c,<c,=,<a+,*150>c,=,,c,>*150c<,g>,d,c,<a+,7b,>c<,14
+c,=,,c,=,c,>c,=,,<c,>*150c<,=,c--,*150c,=,,
+c,=,>c,<c,=,<a+,*150>c,=,,c,>c<,c,g,a+,<a+,b>,
+
+@1 o5 t7 q2 |
+,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
+v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,,
+v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,c,
+v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,,
+v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,c,v40c,
+v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,,
+v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,c,
+v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,,
+v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,c,v40c,
+
+$4 a16 d12 s0 r4 PW128~0w1Y0,~12,40Y6y25
+$5 a1  d3 s30 r20 PW128~0w1Y0,~12,40Y6y25
+@2 o4 t14 q2 |
+,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
+i4a+,,,,,,,,a,,,,,,, i5f,g,c,=,,,,,, ,,,,,,,,
+i4a+,,,,,,,,a,,,,,,, i5f,g,>c,=,c,=,,,, ,,,,,,,c,7d,
+i5d+,14,,,,,,,i4f,,,,,,,, i5g,c,=,,,,,, ,,,,,,,,
+i4d+,,,,,,f,,d,,,,,,,i5<a+, a+,>c,=,c<,=,,, ,,,,,,,,,
+
+
+
+$6 a14 d6 s45 r11 T|~0,,~7,,~10,,~15,,
+$7 a14 d6 s45 r11 T|~0,,~7,,~14,,~19,,
+$8 a14 d6 s45 r18 T|~0,,~7,,~14,,~19,,
+@3 o5 |
+i6c,14,,,= ,,,, i7c--,,,,= ,,,,
+i8c,,,,= ,,,, ,,,, ,,,,
+
+"
+
+
+struct Song:
+    name: int*
+    data: int*
+
+var SONGS: Song[] = {
+    # { "WIP", MUSIC_WIP },
+    { "TITLE", MUSIC_TITLE },
+    { "LEVEL", MUSIC_LEVEL },
+}
+
+var song
+var frame
+var started
+
+# piano roll: the last 320 frames, one column per frame, 2 px per semitone (notes 12 to 95), as heard
+var roll: int[320 * 4]   # per column and track: sounding pitch (1/8 semitones) * 16 + shade, -1: silent
+
+func roll_y(pitch) int: return 178 - (pitch - 12 * 8) / 4
+
+func roll_record():
+    var col = frame % 320
+    for i = 0, 4:
+        var t = &audio_tracks[i]
+        var v = &t.voice
+        # as in audio_update_music
+        var pitch = v.pitch + (v.abs_pitch ? 0 : t.pitch / 8) + audio_voice_vibrato(v)
+        var vol = t.volume * v.vol * v.level / (64 * 64)
+        var shade = 15 - min(vol * 15 / AUDIO_ENV_PEAK, 15)   # 0: loudest, 15: black
+        var visible = t.pos and shade < 15 and pitch >= 12 * 8 and pitch < 96 * 8
+        roll[col * 4 + i] = visible ? pitch * 16 + shade : -1
+
+func roll_draw():
+    # octave lines at each C
+    for c = 1, 8:
+        for y = roll_y(c * 96) - 1, roll_y(c * 96) + 1:   # 2 px, like an unbent note line
+            sprite(0,   y, 256, 1, 0, 31, 0)
+            sprite(256, y, 256, 1, 0, 31, 0)
+    for x = 0, 320:
+        var f = frame - 319 + x
+        if f < 0: continue
+        var col = f % 320
+        for i = 0, 4:
+            var r = roll[col * 4 + i]
+            if r < 0: continue
+            # 2 px line, shifted up by the truncated quarter pixels: full middle row,
+            # partial rows above and below (weight in quarters scales the gradient's brightness)
+            var p = r / 16
+            var y = roll_y(p)
+            var q = (p - 12 * 8) % 4                             # truncated quarter pixels
+            var l = 15 - r % 16                                  # 15: loudest
+            sprite(x, y - 1, 1, 1, r % 16, 32 + i, 0)            # colour gradients at (0, 32)
+            if q > 0: sprite(x, y - 2, 1, 1, 15 - l * q / 4, 32 + i, 0)
+            sprite(x, y, 1, 1, 15 - l * (4 - q) / 4, 32 + i, 0)
+
+func tick():
+    if btnp(BTN_LEFT):  song = (song + SONGS.len - 1) % SONGS.len
+    if btnp(BTN_RIGHT): song = (song + 1) % SONGS.len
+    if btnp(BTN_LEFT) or btnp(BTN_RIGHT) or btnp(BTN_A) or not started:
+        started = true
+        frame = 0
+        audio_play_music(SONGS[song].data)
+
+    audio_update_music()
+
+    draw_text(2, 2, "<     >")
+    draw_text(10, 2, SONGS[song].name)
+
+    roll_record()
+    roll_draw()
+    var buf: int[12]
+    strnum(buf, frame / 60)
+    draw_text(72, 2, buf)
+    frame += 1
+
+    input_update()
