@@ -18,6 +18,7 @@ const GAME_STATE_WIN        = 4
 
 const LEVEL_CARD_FRAMES    = 60
 const LEVEL_DONE_FRAMES    = 48
+const WIN_BONUS_DELAY      = 30   # frames after THE END appears before the leftover quanta pay out
 
 const TS      = 16
 const SP      = 16
@@ -33,6 +34,7 @@ struct Game:
     countdown
     tick
     hiscore
+    new_hiscore   # beaten in this game
 
 var game: Game
 
@@ -120,6 +122,7 @@ func game_set_state(s):
         game.level     = 0
         game.countdown = 0
         game.tick      = 0
+        game.new_hiscore = false
         load(&game.hiscore, 1)
         game_init_level(LEVEL_TITLE_DATA)
         camera.box.x = 0
@@ -128,15 +131,14 @@ func game_set_state(s):
         audio_play_music(MUSIC_TITLE)
         hero.state = HERO_STATE_NORMAL
 
-    elif s == GAME_STATE_GAME_OVER or s == GAME_STATE_WIN:
-        hero.score += hero.quanta * QUANTUM_BONUS
-        hero.quanta = 0
-        if hero.score > game.hiscore:
-            game.hiscore = hero.score
-            save(&game.hiscore, 1)
-        if s == GAME_STATE_GAME_OVER:
-            audio_stop_music()
-            audio_play_sfx(SFX_GAME_OVER)
+    elif s == GAME_STATE_GAME_OVER:
+        # no bonus: game over means no quanta left
+        game_save_hiscore()
+        audio_stop_music()
+        audio_play_sfx(SFX_GAME_OVER)
+    elif s == GAME_STATE_WIN:
+        game.countdown = WIN_BONUS_DELAY
+        game_save_hiscore()
     elif s == GAME_STATE_LEVEL:
         game.countdown = LEVEL_CARD_FRAMES
         audio_stop_music()
@@ -148,6 +150,13 @@ func game_set_state(s):
     elif s == GAME_STATE_LEVEL_DONE:
         game.countdown = LEVEL_DONE_FRAMES
         audio_stop_music()
+
+
+func game_save_hiscore():
+    if hero.score > game.hiscore:
+        game.hiscore = hero.score
+        game.new_hiscore = true
+        save(&game.hiscore, 1)
 
 
 func game_init_level(data: int*):
@@ -195,6 +204,17 @@ func game_update():
                 game_init_level(LEVEL_DATA[game.level])
                 game_set_state(GAME_STATE_LEVEL)
                 return
+
+    elif game.state == GAME_STATE_WIN and (game.countdown > 0 or hero.quanta > 0):
+        # pay out the leftover quanta, counting down on the HUD like a respawn
+        if game.countdown > 0: game.countdown -= 1
+        elif game.tick % 3 == 0:
+            # pay ~10% per step above 10 so big hauls don't take forever
+            var n = max(1, hero.quanta / 10)
+            hero.quanta -= n
+            hero.score += QUANTUM_BONUS * n
+            audio_play_sfx(SFX_QUANTUM_PAID)
+            if hero.quanta == 0: game_save_hiscore()
 
     elif game.state == GAME_STATE_GAME_OVER or game.state == GAME_STATE_WIN:
         if btnp(BTN_A) or btnp(BTN_B):
@@ -283,3 +303,5 @@ func game_draw():
         draw_centered_text(SCREEN_W / 2, SCREEN_H / 2 - 4, "GAME OVER")
     elif game.state == GAME_STATE_WIN:
         draw_centered_text(SCREEN_W / 2, SCREEN_H / 2 - 4, "THE END")
+        if game.new_hiscore and game.countdown == 0 and hero.quanta == 0:
+            draw_centered_text(SCREEN_W / 2, SCREEN_H / 2 + 12, "NEW HIGHSCORE")
