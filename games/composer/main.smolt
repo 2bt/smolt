@@ -6,51 +6,56 @@ include "lib/audio.smolt"
 include "../outpost-oberon/audio_data.smolt"
 
 
-
 var MUSIC_WIP = "
-$0 d10 s50 r7 v50 N=80,PW30w2~0
-$1 s64 r2 N=90,T=43,=40,=37,=32,=30,=27,=22,=14
-$2 d5 s64 N=70,PW128=44,=42s0,N=70,P=41,N=70
-$3 s64 r3 T=90,~0
-@0 q2 o2 i0 |
-c,14=,,c,=,c,>c,=,,<c,>*150c<,=,c--,*150c,=,,
-c,=,>c,<c,=,<a+,*150>c,=,,c,>*150c<,g>,d,c,<a+,7b,>c<,14
-c,=,,c,=,c,>c,=,,<c,>*150c<,=,c--,*150c,=,,
-c,=,>c,<c,=,<a+,*150>c,=,,c,>c<,c,g,a+,<a+,b>,
+# bass
+$10 d5s50r3  PW64~0F1C100,C50,C30
 
-@1 o5 t7 q2 |
-,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
-,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
-v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,,
-v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,c,
-v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,,
-v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,c,v40c,
-v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,,
-v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,c,
-v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,,,
-v64 i1c,,i3g,i1c,i2c,,i1c,i3g,>f,g,i1c,i3g<,i2c,,c,v40c,
+# lead
+$20 d5s50r3 PW128w3~0,20Y3y24
+$21 d5s50r16 PW128w3~0,20Y3y24
+$22 w-5
 
-$4 a16 d12 s0 r4 PW128~0w1Y0,~12,40Y6y25
-$5 a1  d3 s30 r20 PW128~0w1Y0,~12,40Y6y25
-@2 o4 t14 q2 |
-,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
-,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
-,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
-,,,,,,,,,,,,,,,, ,,,,,,,,,,,,,,,,
-i4a+,,,,,,,,a,,,,,,, i5f,g,c,=,,,,,, ,,,,,,,,
-i4a+,,,,,,,,a,,,,,,, i5f,g,>c,=,c,=,,,, ,,,,,,,c,7d,
-i5d+,14,,,,,,,i4f,,,,,,,, i5g,c,=,,,,,, ,,,,,,,,
-i4d+,,,,,,f,,d,,,,,,,i5<a+, a+,>c,=,c<,=,,, ,,,,,,,,,
+@0| # drums
+@1| # bass
+@2| # lead
 
 
 
-$6 a14 d6 s45 r11 T|~0,,~7,,~10,,~15,,
-$7 a14 d6 s45 r11 T|~0,,~7,,~14,,~19,,
-$8 a14 d6 s45 r18 T|~0,,~7,,~14,,~19,,
-@3 o5 |
-i6c,14,,,= ,,,, i7c--,,,,= ,,,,
-i8c,,,,= ,,,, ,,,, ,,,,
+$0
 
+@0 t6 q1 i0
+| c,,,,c,,,,c,,,,c,,,,
+
+
+@1 t6 q3 o2 i10
+d,d,d,d,d,d,d,d, d,d,d,d,d,d,d,d,
+c,c,c,c,c,c,c,c, c,c,c,c,c,c,c,c,
+<a+,a+,a+,a+,a+,a+,a+,a+, a+,a+,a+,a+,a+,a+,a+,a+,>
+c,c,c,c,c,c,c,c, c,c,c,c,c,c,c,c,
+
+@2
+t6 q2 o4 i20
+,,,,,,<a>,,d,,e,,f,,a,,
+g,,,a,,,f,,g,,,,f,,e,,
+g,,,,,,f,e,j21d,,,,,,,,
+,,,,=,,,,,,,,,,,,
+
+
+##################
+
+@1 t6 q3 o2 i10
+d,d,d,d,d,d,d,d, d,d,d,d,d,d,d,d,
+e,e,e,e,e,e,e,e, e,e,e,e,e,e,e,e,
+g,g,g,g,g,g,g,g, g,g,g,g,g,g,g,g,
+g,g,g,g,g,g,g,g, g,g,g,g,g,g,g,g,
+a,a,a,a,a,a,a,a, a,a,a,a,a,a,a,a,
+a,a,a,a,a,a,a,a, a,a,a,a,a,a,a,a,
+
+@2
+t6 q2 o4 i20
+,,,,,,<a>,,*100f,,,a,,,d',, c',,,g,,=,>g,,,,e,,,c,,,
+j21d,,,,,,,, ,,,,,,,, j22,,,,,,,, =,,,,f,,,t3g,f,t6
+j21e,,,,,,,, ,,,,,,,, ,,,,,,,, =,,,,,,,,
 "
 
 
@@ -59,7 +64,7 @@ struct Song:
     data: int*
 
 var SONGS: Song[] = {
-    # { "WIP", MUSIC_WIP },
+    { "WIP", MUSIC_WIP },
     { "TITLE", MUSIC_TITLE },
     { "LEVEL", MUSIC_LEVEL },
 }
@@ -80,7 +85,7 @@ func roll_record():
         var v = &t.voice
         # as in audio_update_music
         var pitch = v.pitch + (v.abs_pitch ? 0 : t.pitch / 8) + audio_voice_vibrato(v)
-        var vol = t.volume * v.vol * v.level / (64 * 64)
+        var vol = t.row.volume * v.vol * v.level / (64 * 64)
         var shade = 15 - min(vol * 15 / AUDIO_ENV_PEAK, 15)   # 0: loudest, 15: black
         var visible = t.pos and shade < 15 and pitch >= 12 * 8 and pitch < 96 * 8
         roll[col * 4 + i] = visible ? pitch * 16 + shade : -1
