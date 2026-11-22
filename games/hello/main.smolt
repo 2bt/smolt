@@ -27,5 +27,5 @@ func tick():
     strnum(buf, score)
     draw_text(8, 20, buf)
 
-    audio_update_sfx()
+    audio_update()
     input_update()

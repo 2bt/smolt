@@ -366,6 +366,6 @@ func draw_stage():
 
 func tick():
     update_stage()
-    audio_update_sfx()
+    audio_update()
     input_update()
     draw_stage()

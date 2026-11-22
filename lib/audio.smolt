@@ -60,8 +60,8 @@ struct AudioTrack:
     voice: AudioVoice
 
 var audio_instruments: int*[100]
-var audio_tracks: AudioTrack[4]
-var audio_sfx: AudioVoice[4]
+var audio_tracks: AudioTrack[8]   # @i plays on APU voice 7 - i
+var audio_sfx: AudioVoice[8]      # @i plays on APU voice i, over the music
 var audio_music_volume = 64
 var audio_sfx_volume   = 64
 
@@ -242,12 +242,12 @@ func audio_track_read_row(t: AudioTrack*) int:
                 t.pos += 1
 
 
-func audio_update_music():
-    for t in audio_tracks:
-        if not t.pos and t.wait <= 0: continue # ended
-
-        var n = &t.next
-        if t.wait == t.row.quant and n.note != AUDIO_NOTE_EMPTY and n.porta_speed == 0: t.voice.env = AUDIO_ENV_RELEASE
+func audio_track_update(t: AudioTrack*):
+    var v = &t.voice
+    var n = &t.next
+    if not t.pos and t.wait <= 0: v.env = AUDIO_ENV_RELEASE   # ended (or unused)
+    else:
+        if t.wait == t.row.quant and n.note != AUDIO_NOTE_EMPTY and n.porta_speed == 0: v.env = AUDIO_ENV_RELEASE
         if t.wait <= 0:
             t.row  = t.next
             t.wait = n.wait
@@ -255,28 +255,18 @@ func audio_update_music():
                 t.pitch_target = n.note * 64
                 if n.porta_start >= 0 or n.porta_speed == 0:
                     t.pitch = n.porta_start >= 0 ? n.porta_start * 64 : t.pitch_target
-                    audio_voice_start(&t.voice, audio_instruments[n.instr])
+                    audio_voice_start(v, audio_instruments[n.instr])
             if n.jump >= 0:
-                t.voice.pos  = audio_instruments[n.jump]
-                t.voice.loop = null
-                t.voice.wait = 0
+                v.pos  = audio_instruments[n.jump]
+                v.loop = null
+                v.wait = 0
             if n.note != AUDIO_NOTE_EMPTY: t.porta_speed = n.porta_speed
             audio_track_read_row(t)
         t.wait -= 1
 
-        var v = &t.voice
-        audio_voice_update(v)
-
-        # pitch
-        if t.pitch != t.pitch_target:
-            t.pitch = clamp(t.pitch_target, t.pitch - t.porta_speed, t.pitch + t.porta_speed)
-        var pitch = v.pitch + (v.abs_pitch ? 0 : t.pitch / 8) + audio_voice_vibrato(v)
-
-        # set APU registers
-        # 0..1024: level (14 bit) * vol / 64 * volume / 64 * master / 64 / 16
-        var vol = v.level * v.vol / 64 * t.row.volume / 64 * audio_music_volume / 64 / 16
-        sound(t.index + 4, pitch, v.pw, vol, v.wave)
-        filter(t.index + 4, v.filter, v.cutoff)
+    if t.pitch != t.pitch_target:
+        t.pitch = clamp(t.pitch_target, t.pitch - t.porta_speed, t.pitch + t.porta_speed)
+    audio_voice_update(v)
 
 
 func audio_sfx_voice_free(v: AudioVoice*) int:
@@ -298,14 +288,21 @@ func audio_play_sfx(p: int*):
                 audio_sfx[i].priority = priority
                 audio_voice_start(&audio_sfx[i], p)
 
-func audio_update_sfx():
-    for i = 0, audio_sfx.len:
-        var v = &audio_sfx[i]
-        if not v.pos: continue
-        audio_voice_update(v)
-        sound(i, v.pitch + audio_voice_vibrato(v), v.pw, v.level * v.vol / 64 * audio_sfx_volume / 64 / 16, v.wave)
-        filter(i, v.filter, v.cutoff)
-
 func audio_update():
-    audio_update_sfx()
-    audio_update_music()
+    for i = 0, 8:
+        var t = &audio_tracks[7 - i]
+        audio_track_update(t)
+
+        # a playing sfx takes the APU voice; the music on it plays on silently
+        var v     = &t.voice
+        var pitch = v.abs_pitch ? 0 : t.pitch / 8
+        var gain  = t.row.volume * audio_music_volume   # 64 * 64: full
+        if audio_sfx[i].pos:
+            v     = &audio_sfx[i]
+            pitch = 0
+            gain  = audio_sfx_volume * 64
+            audio_voice_update(v)
+
+        # set APU registers
+        sound(i, pitch + v.pitch + audio_voice_vibrato(v), v.pw, v.level * v.vol / 64 * gain / $1000, v.wave)
+        filter(i, v.filter, v.cutoff)
