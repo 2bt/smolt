@@ -304,5 +304,5 @@ func audio_update():
             audio_voice_update(v)
 
         # set APU registers
-        sound(i, pitch + v.pitch + audio_voice_vibrato(v), v.pw, v.level * v.vol / 64 * gain / $1000, v.wave)
+        sound(i, pitch + v.pitch + audio_voice_vibrato(v), v.pw, v.level * v.vol / 64 * gain / $10000, v.wave)
         filter(i, v.filter, v.cutoff)
