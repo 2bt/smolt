@@ -28,7 +28,7 @@ func sound(i @ 10, pitch @ 11, pw @ 12, vol @ 13, wave @ 14): asm "    int #3"
 func filter(i @ 15, mode @ 16, cutoff @ 17):                  asm "    int #4"
 func save(addr: int* @ 18, len @ 19):                         asm "    int #5"
 func load(addr: int* @ 18, len @ 19):                         asm "    int #6"
-func rand(lo @ 20, hi @ 21):                                  asm "    int #7"
+func rand(lo @ 20, hi @ 21):                                  asm "    int #7"   # lo..hi, both included
 func sqrt(a @ 22):                                            asm "    int #8"
 
 const null  = 0

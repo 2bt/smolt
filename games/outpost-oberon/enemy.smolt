@@ -7,6 +7,7 @@ const ENEMY_TYPE_BUGGER  = 2
 const ENEMY_TYPE_CANNON  = 3
 const ENEMY_TYPE_JELLY   = 4
 const ENEMY_TYPE_PINATA  = 5
+const ENEMY_TYPE_CRAWLER = 6
 
 const ENEMY_BULLET_TYPE_BASIC = 1
 const ENEMY_BULLET_TYPE_AIMED = 2
@@ -131,6 +132,10 @@ struct Enemy:
     # piñata: turns around this far from its spawn point
     home_sx
 
+    # crawler: travel direction (unit); mode is the turn sense, +1 clockwise
+    crawl_dx
+    crawl_dy
+
 var enemies: Enemy[64]
 
 
@@ -146,6 +151,7 @@ func enemy_init_all():
             elif t == 'c': enemy_spawn(ENEMY_TYPE_CANNON, x, y)
             elif t == 'j': enemy_spawn(ENEMY_TYPE_JELLY, x, y)
             elif t == 'o': enemy_spawn(ENEMY_TYPE_PINATA, x, y)
+            elif t == 'w': enemy_spawn(ENEMY_TYPE_CRAWLER, x, y)
 
 func enemy_spawn(type, x, y):
     for e in enemies:
@@ -169,7 +175,7 @@ func enemy_spawn(type, x, y):
             enemy_bugger_set_mode(e, BUGGER_MODE_SLEEP)
 
         elif type == ENEMY_TYPE_CANNON:
-            e.box.w = 5
+            e.box.w = 6
             e.box.h = 12
             e.hp    = 6
             e.facing_left = level_get_tile_at_cr(x / TS + 1, y / TS) == '0'
@@ -188,6 +194,11 @@ func enemy_spawn(type, x, y):
             e.hp    = PINATA_HP
             e.vy    = PINATA_WAVE
 
+        elif type == ENEMY_TYPE_CRAWLER:
+            e.box.w = 10   # square: the same box fits every rotation
+            e.box.h = 10
+            e.hp    = 3
+
 
         e.sx = (x + 8 - e.box.w / 2) * SP
         e.sy = (y + 16 - e.box.h) * SP + SP - 1
@@ -195,11 +206,13 @@ func enemy_spawn(type, x, y):
         if type == ENEMY_TYPE_CANNON:
             e.sy = (y + 8 - e.box.h / 2) * SP
             if e.facing_left: e.sx += 5 * SP
-            else:             e.sx -= 6 * SP
+            else:             e.sx -= 5 * SP
 
         if type == ENEMY_TYPE_JELLY or type == ENEMY_TYPE_PINATA:
             e.sy = (y + 8 - e.box.h / 2) * SP
         e.home_sx = e.sx
+
+        if type == ENEMY_TYPE_CRAWLER: enemy_crawler_attach(e, x / TS, y / TS)
 
         e.box.x = e.sx / SP
         e.box.y = e.sy / SP
@@ -240,6 +253,7 @@ func enemy_update_all():
                     e.type == ENEMY_TYPE_CANNON ? 300 :
                     e.type == ENEMY_TYPE_JELLY  ? 200 :
                     e.type == ENEMY_TYPE_PINATA ? 100 :
+                    e.type == ENEMY_TYPE_CRAWLER ? 100 :
                     0)
 
             continue
@@ -260,6 +274,7 @@ func enemy_update_all():
             elif e.type == ENEMY_TYPE_CANNON: enemy_cannon_update(e)
             elif e.type == ENEMY_TYPE_JELLY:  enemy_jelly_update(e)
             elif e.type == ENEMY_TYPE_PINATA: enemy_pinata_update(e)
+            elif e.type == ENEMY_TYPE_CRAWLER: enemy_crawler_update(e)
 
 
 func enemy_draw_all():
@@ -281,7 +296,7 @@ func enemy_draw_all():
                           e.facing_left)
 
         elif e.type == ENEMY_TYPE_CANNON:
-            var cx = e.facing_left ? e.box.x - 11 : e.box.x
+            var cx = e.facing_left ? e.box.x - 10 : e.box.x
             camera_sprite(cx, e.box.y - 2, 16, 16,
                           256 + e.frame * 16,
                           112 + (e.hit_countdown > 0) * 16,
@@ -298,6 +313,18 @@ func enemy_draw_all():
                           256 + e.frame * 16,
                           176 + (e.hit_countdown > 0) * 16,
                           0)
+
+        elif e.type == ENEMY_TYPE_CRAWLER:
+            # art: frame 0 idle, 1-4 walk, on the floor heading right; frames 5-9 the same rotated
+            # clockwise (wall on the left, heading down); hit frames 16 below; the 10x10 box hugs
+            # the surface side of the 16x16 cell; flips make the ceiling and the right wall
+            var gx = -e.crawl_dy * e.mode
+            var gy =  e.crawl_dx * e.mode
+            var f = gx ? (gx > 0) | (e.crawl_dy < 0) * 2 : (e.crawl_dx < 0) | (gy < 0) * 2
+            camera_sprite(e.box.x - 3 - 3 * gx, e.box.y - 3 - 3 * gy, 16, 16,
+                          256 + (e.frame + (gx != 0) * 5) * 16,
+                          208 + (e.hit_countdown > 0) * 16,
+                          f)
 
         # box
         # camera_sprite(e.box.x, e.box.y, e.box.w, e.box.h, 0, 480, 0)
@@ -709,3 +736,104 @@ func enemy_pinata_update(e: Enemy*):
     e.vy += e.anim_tick / (PINATA_WAVE * 2) % 2 ? 1 : -1
     level_move_box_y(&e.sy, &e.box, e.vy, true)
     e.anim_tick += 1
+
+
+# ---------------------------------------------------------------------------
+# crawler
+# ---------------------------------------------------------------------------
+const CRAWLER_SPEED      = 6    # in 1/SP pixels per frame
+const CRAWLER_DROP_RANGE = 10   # drops when the hero's center is this close horizontally
+
+# stick to the first solid side of tile (c, r): below, above, left, right; heading either way
+func enemy_crawler_attach(e: Enemy*, c, r):
+    var gx = 0
+    var gy = 1
+    if   level_is_solid(level_get_tile_at_cr(c, r + 1)): gy = 1
+    elif level_is_solid(level_get_tile_at_cr(c, r - 1)): gy = -1
+    elif level_is_solid(level_get_tile_at_cr(c - 1, r)):
+        gx = -1
+        gy = 0
+    elif level_is_solid(level_get_tile_at_cr(c + 1, r)):
+        gx = 1
+        gy = 0
+    e.mode     = rand(0, 1) * 2 - 1
+    e.anim_tick = rand(0, 23)   # out of step with the others: 4 frames of 6 ticks
+    e.crawl_dx =  gy * e.mode
+    e.crawl_dy = -gx * e.mode
+    e.box.x = c * TS + 3 + 3 * gx
+    e.box.y = r * TS + 3 + 3 * gy
+    e.sx = e.box.x * SP
+    e.sy = e.box.y * SP
+    e.on_ground = true
+
+# move one pixel, like any enemy: jump-throughs (^, moving platforms) stop it only going down;
+# true if something was in the way
+func enemy_crawler_move(e: Enemy*, dx, dy) int:
+    e.sx = e.box.x * SP
+    e.sy = e.box.y * SP
+    if dx: return level_move_box_x(&e.sx, &e.box, dx * SP)
+    return level_move_box_y(&e.sy, &e.box, dy * SP, false)
+
+func enemy_crawler_fall(e: Enemy*):
+    audio_play_sfx(SFX_CRAWLER_DROP)
+    e.on_ground = false
+    e.vy = 0
+    e.sx = e.box.x * SP
+    e.sy = e.box.y * SP
+
+func enemy_crawler_update(e: Enemy*):
+    e.anim_tick += 1
+    e.frame = 1 + e.anim_tick / 6 % 4
+
+    if not e.on_ground:
+        e.frame = 0
+        e.vy = min(e.vy + GRAVITY, SP * 4)
+        if level_move_box_y(&e.sy, &e.box, e.vy, false) == DIR_DOWN:   # lands on jump-throughs too
+            # land on the floor, heading for the hero
+            audio_play_sfx(SFX_CRAWLER_LAND)
+            e.on_ground = true
+            e.crawl_dx  = box_center_x(hero.box) < box_center_x(e.box) ? -1 : 1
+            e.crawl_dy  = 0
+            e.mode      = e.crawl_dx
+            e.pace_countdown = 0
+        return
+
+    # on the ceiling (surface above) with the hero right below: let go
+    var cx = box_center_x(e.box)
+    var cy = box_center_y(e.box)
+    if (e.crawl_dx * e.mode < 0
+    and hero.state == HERO_STATE_NORMAL
+    and hero.box.y > e.box.y
+    and abs(box_center_x(hero.box) - cx) < CRAWLER_DROP_RANGE
+    and level_has_los(cx, cy, box_center_x(hero.box), box_center_y(hero.box))):
+        enemy_crawler_fall(e)
+        return
+
+    e.pace_countdown += CRAWLER_SPEED
+    while e.pace_countdown >= SP:
+        e.pace_countdown -= SP
+        var dx = e.crawl_dx
+        var dy = e.crawl_dy
+        var gx = -dy * e.mode   # where it holds on
+        var gy =  dx * e.mode
+        if enemy_crawler_move(e, dx, dy):
+            # a wall ahead: climb it
+            e.crawl_dx = -gx
+            e.crawl_dy = -gy
+        elif not enemy_crawler_move(e, gx, gy):   # else still holding on
+            if enemy_crawler_move(e, -dx, -dy):
+                # past an edge: round the corner
+                e.crawl_dx = gx
+                e.crawl_dy = gy
+            else:
+                # nothing to go round: the end of a jump-through, or its hold is gone (block shot away)
+                enemy_crawler_move(e, -gx, -gy)
+                if not enemy_crawler_move(e, gx, gy):
+                    enemy_crawler_fall(e)
+                    return
+                e.crawl_dx = -dx
+                e.crawl_dy = -dy
+                e.mode     = -e.mode
+
+    e.sx = e.box.x * SP
+    e.sy = e.box.y * SP
