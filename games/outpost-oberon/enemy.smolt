@@ -392,6 +392,7 @@ func enemy_kill(e: Enemy*):
     particle_spawn(PARTICLE_TYPE_EXPLOSION, box_center_x(e.box), box_center_y(e.box))
     audio_play_sfx(SFX_EXPLOSION)
     if e.type == ENEMY_TYPE_MINE: enemy_mine_burst(e)
+    if e.type == ENEMY_TYPE_CRAWLER and not e.on_ground: audio_play_sfx(SFX_CRAWLER_HUSH)
     # the piñata bursts; every other enemy drops one
     var n = e.type == ENEMY_TYPE_PINATA ? 2 : 1
     var x = box_center_x(e.box)
