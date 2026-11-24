@@ -774,6 +774,7 @@ func enemy_pinata_update(e: Enemy*):
 # ---------------------------------------------------------------------------
 const CRAWLER_SPEED      = 6    # in 1/SP pixels per frame
 const CRAWLER_DROP_RANGE = 10   # drops when the hero's center is this close horizontally
+const CRAWLER_DROP_DELAY = 8    # frames it holds still before letting go
 
 # stick to the first solid side of tile (c, r): below, above, left, right; heading either way
 func enemy_crawler_attach(e: Enemy*, c, r):
@@ -805,13 +806,6 @@ func enemy_crawler_move(e: Enemy*, dx, dy) int:
     if dx: return level_move_box_x(&e.sx, &e.box, dx * SP)
     return level_move_box_y(&e.sy, &e.box, dy * SP, false)
 
-func enemy_crawler_fall(e: Enemy*):
-    audio_play_sfx(SFX_CRAWLER_DROP)
-    e.on_ground = false
-    e.vy = 0
-    e.sx = e.box.x * SP
-    e.sy = e.box.y * SP
-
 func enemy_crawler_update(e: Enemy*):
     # fell in, or crawled down into a lava pit
     var t = level_get_tile(e.box.x, e.box.y)
@@ -823,6 +817,7 @@ func enemy_crawler_update(e: Enemy*):
     e.anim_tick += 1
     e.frame = 1 + e.anim_tick / 6 % 4
 
+    # falling
     if not e.on_ground:
         e.frame = 0
         e.vy = min(e.vy + GRAVITY, SP * 4)
@@ -836,15 +831,28 @@ func enemy_crawler_update(e: Enemy*):
             e.pace_countdown = 0
         return
 
+    # about to let go: hold still
+    if e.wait_countdown > 0:
+        e.frame = 0
+        e.wait_countdown -= 1
+        if e.wait_countdown == 0:
+            audio_play_sfx(SFX_CRAWLER_DROP)
+            e.on_ground = false
+            e.vy = 0
+            e.sx = e.box.x * SP
+            e.sy = e.box.y * SP
+        return
+
     # on the ceiling (surface above) with the hero right below: let go
     var cx = box_center_x(e.box)
     var cy = box_center_y(e.box)
     if (e.crawl_dx * e.mode < 0
     and hero.state == HERO_STATE_NORMAL
     and hero.box.y > e.box.y
+    and box_encloses(camera.box, e.box)
     and abs(box_center_x(hero.box) - cx) < CRAWLER_DROP_RANGE
     and level_has_los(cx, cy, box_center_x(hero.box), box_center_y(hero.box))):
-        enemy_crawler_fall(e)
+        e.wait_countdown = CRAWLER_DROP_DELAY
         return
 
     e.pace_countdown += CRAWLER_SPEED
@@ -867,7 +875,7 @@ func enemy_crawler_update(e: Enemy*):
                 # nothing to go round: the end of a jump-through, or its hold is gone (block shot away)
                 enemy_crawler_move(e, -gx, -gy)
                 if not enemy_crawler_move(e, gx, gy):
-                    enemy_crawler_fall(e)
+                    e.wait_countdown = 1
                     return
                 e.crawl_dx = -dx
                 e.crawl_dy = -dy
