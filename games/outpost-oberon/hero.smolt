@@ -87,7 +87,7 @@ struct Hero:
     run_tick
     shoot_countdown
     hit_countdown
-    helmet      # helmets collected since the last death, 0..3: the shot level; any of them absorbs one hit, losing all
+    helmet      # helmets collected since the last death, 0..4: the shot level; any of them absorbs one hit, losing all
 
 var hero: Hero
 
@@ -374,10 +374,11 @@ func hero_update():
             hero_bullet_spawn(sx, by - 4, hero.facing_left, p)
             hero_bullet_spawn(sx, by + 4, hero.facing_left, p)
         if hero.helmet >= 3:
-            # and two weak ones further out, further behind
-            var wx = bx + (hero.facing_left ? 5 : -2)
-            hero_bullet_spawn(wx, by - 8, hero.facing_left, 1)
-            hero_bullet_spawn(wx, by + 8, hero.facing_left, 1)
+            # and two further out, further behind: weak, strong from 4 helmets on
+            var wp = hero.helmet >= 4 ? 2 : 1
+            var wx = bx + (hero.facing_left ? (wp == 2 ? 2 : 5) : -2)
+            hero_bullet_spawn(wx, by - 8, hero.facing_left, wp)
+            hero_bullet_spawn(wx, by + 8, hero.facing_left, wp)
 
     # animation
     hero.frame = 0
