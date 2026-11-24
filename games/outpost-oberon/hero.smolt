@@ -19,7 +19,7 @@ struct HeroBullet:
     box: Box
     sx
     vx
-    power   # damage: hp it takes from an enemy or a treasure block
+    power   # damage: hp it takes from an enemy, a treasure or a secret block
 
 
 var hero_bullets: HeroBullet[24]
@@ -50,7 +50,7 @@ func hero_bullet_update_all():
             var px = hit == DIR_LEFT ? b.box.x : b.box.x + b.box.w - 1
             particle_spawn(PARTICLE_TYPE_FLASH, px, b.box.y)
             audio_play_sfx(SFX_BULLET_WALL)   # first: a block's own sound replaces it
-            level_hit_block(hit == DIR_LEFT ? px - 1 : px + 1, b.box.y, b.power)
+            level_hit_block(hit == DIR_LEFT ? px - 1 : px + 1, b.box.y, b)
             continue
 
         for e in enemies:

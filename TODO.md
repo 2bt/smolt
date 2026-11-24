@@ -35,12 +35,7 @@ enemies:
 + [x] bugger
 + [x] wall cannon
 + [ ] drone?
-+ [ ] crawler: no shooting, crawls along solid tiles incl. boom/treasure blocks (floor, walls,
-      ceiling; wraps outer corners, turns at inner ones; speed divides the tile size); falls
-      when its block is destroyed; ignores moving platforms. On the ceiling, with the hero below
-      and nothing in between: twitches ~15 frames, then drops and lands as a floor crawler
-      (maybe on its back for ~1 s first). Can't be shot on the ceiling, so you bait the drop.
-      Drops 1 quantum. Fits the mine shafts.
++ [x] crawler
 
 other game elements:
 + keys?

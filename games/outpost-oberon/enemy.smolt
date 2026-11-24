@@ -70,7 +70,7 @@ func enemy_bullet_update_all():
             if hit_y == DIR_UP:    py = b.box.y
             if hit_y == DIR_DOWN:  py = b.box.y + b.box.h - 1
             level_hit_block(px + (hit_x == DIR_RIGHT) - (hit_x == DIR_LEFT),
-                            py + (hit_y == DIR_DOWN) - (hit_y == DIR_UP), 0)
+                            py + (hit_y == DIR_DOWN) - (hit_y == DIR_UP), null)
             particle_spawn(PARTICLE_TYPE_FLASH, px, py)
             audio_play_sfx(SFX_BULLET_WALL)
             continue
