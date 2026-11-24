@@ -34,7 +34,7 @@ func particle_spawn(type, x, y) Particle*:
                 p.flip = rand(0, 3)
 
             elif type == PARTICLE_TYPE_FLASH:
-                p.ttl = 3
+                p.ttl = 5   # 4 frames: spawned during the update, before particles count down
 
             elif type == PARTICLE_TYPE_CHARGE:
                 p.ttl = 10
@@ -90,8 +90,8 @@ func particle_draw_all():
                           p.flip)
 
         elif p.type == PARTICLE_TYPE_FLASH:
-            camera_sprite(x - 2, y - 2, 5, 5,
-                          0,
+            camera_sprite(x - 3, y - 3, 7, 7,
+                          (4 - p.ttl) * 8,
                           256 + 16,
                           0)
 

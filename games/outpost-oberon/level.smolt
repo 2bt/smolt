@@ -19,11 +19,12 @@ struct Platform:
 #   lights its neighbours (chain reaction) and comes back later.
 # treasure: the hero shoots it open; it breaks for good and out comes the helmet.
 # secret: looks like plain wall; a hero shot crumbles it and, one by one, all secret blocks
-#   it touches; for good, harmless. Opens the way to secret areas.
-const BLOCK_NONE     = 0
-const BLOCK_BOOM     = 'B'
-const BLOCK_TREASURE = 'T'
-const BLOCK_SECRET   = '#'
+#   it touches; for good, harmless. Opens the way to secret areas. '$' leaves a quantum behind.
+const BLOCK_NONE           = 0
+const BLOCK_BOOM           = 'B'
+const BLOCK_TREASURE       = 'T'
+const BLOCK_SECRET         = '#'
+const BLOCK_SECRET_QUANTUM = '$'
 
 struct Block:
     type
@@ -61,17 +62,17 @@ struct Pickup:
     ty      # dropped: the flight ends once it falls back below this (box y), so it never stops out of reach
     ttl     # dropped: frames until it's gone; placed: 0, stays
 
-const PICKUP_DROP_FRAMES  = 900  # 15 s: long enough to come back for, too short to bank as a spare life
-const PICKUP_FLY_FRAMES   = 60   # the first frames, where a dropped one flies; most stop early, on ty
-const PICKUP_BLINK_FRAMES = 60   # the last frames before a dropped one is gone
+const PICKUP_DROP_FRAMES   = 900  # 15 s: long enough to come back for, too short to bank as a spare life
+const PICKUP_FLY_FRAMES    = 60   # the first frames, where a dropped one flies; most stop early, on ty
+const PICKUP_BLINK_FRAMES  = 60   # the last frames before a dropped one is gone
 
-const HELMET_SCORE   = 100
-const QUANTA_START   = 30
-const QUANTA_RESPAWN = 10   # paid on each respawn; all that's left if fewer
-const QUANTUM_SCORE  = 10
+const HELMET_SCORE         = 500
+const QUANTA_START         = 30
+const QUANTA_RESPAWN       = 10   # paid on each respawn; all that's left if fewer
+const QUANTUM_SCORE        = 10
 const QUANTUM_MAGNET_RANGE = 32   # pixels
 const QUANTUM_MAGNET_SPEED = 32   # subpixels per frame, right next to the hero
-const QUANTUM_BONUS  = 50   # per quantum left over at the end of the game
+const QUANTUM_BONUS        = 50   # per quantum left over at the end of the game
 
 struct Level:
     data: int*
@@ -129,7 +130,7 @@ func level_init(data: int*):
                     continue
                 level.checkpoints[level.checkpoint_count] = { c * TS, r * TS }
                 level.checkpoint_count += 1
-            elif t == BLOCK_BOOM or t == BLOCK_TREASURE or t == BLOCK_SECRET:
+            elif t == BLOCK_BOOM or t == BLOCK_TREASURE or level_is_secret(t):
                 level_add_block(t, c, r)
             elif t == '+' or t == '*':
                 level_add_pickup(t == '+' ? PICKUP_HELMET : PICKUP_QUANTUM, c * TS + 8, r * TS + 8)
@@ -142,7 +143,7 @@ func level_init(data: int*):
 func level_add_block(type, c, r):
     for b in level.blocks:
         if b.type != BLOCK_NONE: continue
-        b.* = { type, c + r * level.w, c * TS, r * TS, 0, type == BLOCK_SECRET ? SECRET_HP : TREASURE_HP }
+        b.* = { type, c + r * level.w, c * TS, r * TS, 0, level_is_secret(type) ? SECRET_HP : TREASURE_HP }
         return
     print("error: not enough blocks")
 
@@ -231,11 +232,14 @@ func level_get_tile(x, y):
     return level_get_tile_at_cr(x / TS, y / TS)
 
 func level_is_solid(t):
-    return t == '0' or t == 'X' or t == 'B' or t == 'T' or t == '#'
+    return t == '0' or t == 'X' or t == 'B' or t == 'T' or level_is_secret(t)
 
 # drawn as plain wall
 func level_is_wall(t):
-    return t == '0' or t == '#'
+    return t == '0' or level_is_secret(t)
+
+func level_is_secret(t):
+    return t == BLOCK_SECRET or t == BLOCK_SECRET_QUANTUM
 
 # something hit the block at (x, y), if there is one: a boom block lights its fuse;
 # treasure and secret blocks take damage, but only from the hero: bullet is null for anything else
@@ -246,7 +250,7 @@ func level_hit_block(x, y, bullet: HeroBullet*):
         if b.i != i: continue
         if b.type == BLOCK_BOOM:
             if b.countdown == 0 or b.countdown > BOOM_BLOCK_SHOT_FUSE: b.countdown = BOOM_BLOCK_SHOT_FUSE
-        elif b.type == BLOCK_SECRET and bullet:
+        elif level_is_secret(b.type) and bullet:
             b.hp -= bullet.power
             if b.hp <= 0 and b.countdown == 0: b.countdown = 1
             # a hint: plain wall doesn't crumble. Out of the face the shot hit, back where it came from
@@ -442,16 +446,17 @@ func level_update():
         if b.type == BLOCK_TREASURE:
             if b.countdown > 0: b.countdown -= 1
             continue
-        if b.type == BLOCK_SECRET:
-            if b.countdown == 0 or level.data[b.i] != '#': continue
+        if level_is_secret(b.type):
+            if b.countdown == 0 or level.data[b.i] == ' ': continue
             b.countdown -= 1
             if b.countdown > 0: continue
             level.data[b.i] = ' '
             audio_play_sfx(SFX_EXPLOSION)
             for k = 0, 8: particle_spawn(PARTICLE_TYPE_DEBRIS, b.x + rand(0, TS - 1), b.y + rand(0, TS - 1))
+            if b.type == BLOCK_SECRET_QUANTUM: level_add_pickup(PICKUP_QUANTUM, b.x + 8, b.y + 8)
             # the chain: the secret blocks it touches go next
             for n in level.blocks:
-                if (n.type == BLOCK_SECRET and n.countdown == 0 and level.data[n.i] == '#'
+                if (level_is_secret(n.type) and n.countdown == 0 and level.data[n.i] != ' '
                 and abs(n.x - b.x) + abs(n.y - b.y) == TS):
                     n.countdown = SECRET_BLOCK_FUSE
             continue
@@ -515,6 +520,10 @@ func level_update():
                     var v = QUANTUM_MAGNET_SPEED * (QUANTUM_MAGNET_RANGE - d) / QUANTUM_MAGNET_RANGE
                     p.vx = dx * v / max(d, 1)
                     p.vy = dy * v / max(d, 1)
+            # in lava: rise slowly, until it pokes out of the surface
+            var t1 = level_get_tile(p.box.x, p.box.y + 10)      | 32
+            var t2 = level_get_tile(p.box.x, p.box.y + 10 + TS) | 32
+            if t1 == 'l' or t2 == 'l': p.vy -= 4
 
         # move; flying, it bounces off walls and lands on platforms
         var hit_x = level_move_box_x(&p.sx, &p.box, p.vx)
@@ -544,7 +553,7 @@ func level_update():
         for i = 0, level.checkpoint_count:
             var cp = &level.checkpoints[i]
             if cp == level.active_checkpoint: continue
-            var box: Box = { cp.x + 8, cp.y - TS, 1, TS * 3 }
+            var box: Box = { cp.x + 8, cp.y - TS * 2, 1, TS * 3 }
             if box_intersects(box, hero.box):
                 level.active_checkpoint = cp
                 level.checkpoint_tick = 0

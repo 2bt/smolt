@@ -15,7 +15,7 @@
 + [x] high score
 + [x] screen shake
 + [x] moving platforms
-+ [ ] destructible walls: secret walls (a boom block variant): look like plain wall, shooting
++ [x] destructible walls: secret walls (a boom block variant): look like plain wall, shooting
       one blows it and its neighbours in a chain, no damage, never come back; reveal secret areas
 + [ ] level names on the level card
 
