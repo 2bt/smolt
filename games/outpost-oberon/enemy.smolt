@@ -235,7 +235,7 @@ func enemy_spawn(type, x, y):
         e.box.y = e.sy / SP
         return
 
-    print("enemy spawn error")
+    print("error: not enough enemies")
 
 
 
@@ -625,7 +625,7 @@ func enemy_bugger_update(e: Enemy*):
         e.vy = 8
 
     var t = level_get_tile(e.box.x, e.box.y)
-    if t == 'l':
+    if t == 'L':
         enemy_kill(e)
         e.vy = 4
 
@@ -810,7 +810,7 @@ func enemy_crawler_move(e: Enemy*, dx, dy) int:
 func enemy_crawler_update(e: Enemy*):
     # fell in, or crawled down into a lava pit
     var t = level_get_tile(e.box.x, e.box.y)
-    if t == 'l' or t == 'L':
+    if t == 'L':
         enemy_kill(e)
         e.vy = 4
         return

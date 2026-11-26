@@ -16,7 +16,7 @@ const GAME_STATE_LEVEL_DONE = 2
 const GAME_STATE_GAME_OVER  = 3
 const GAME_STATE_WIN        = 4
 
-const LEVEL_CARD_FRAMES    = 60
+const LEVEL_CARD_FRAMES    = 90
 const LEVEL_DONE_FRAMES    = 48
 const WIN_BONUS_DELAY      = 30   # frames after THE END appears before the leftover quanta pay out
 
@@ -57,12 +57,12 @@ func camera_sprite(x, y, w, h, s, t, f):
 
 func camera_center_on_hero():
     camera.box.x = box_center_x(hero.box) - SCREEN_W / 2
-    camera.box.y = box_center_y(hero.box) - SCREEN_H / 2
-    camera.ground_y = box_center_y(hero.box)
+    camera.box.y = hero.box.y + 8 - SCREEN_H / 2
+    camera.ground_y = hero.box.y + 8
 
 func camera_follow_hero():
     var hx = box_center_x(hero.box)
-    var hy = box_center_y(hero.box)
+    var hy = hero.box.y + 8
     # lock vertical settle target to last stand height; track down while falling
     if hero.on_ground or hy > camera.ground_y: camera.ground_y = hy
     camera.box.x = clamp(camera.box.x, hx + CAM_MARGIN_H - SCREEN_W, hx - CAM_MARGIN_H)
@@ -83,7 +83,7 @@ func camera_return_toward_spawn() int:
         camera.sy = camera.box.y * SP
         camera.speed = 0
     var tx = (box_center_x(hero.box) - SCREEN_W / 2) * SP
-    var ty = (box_center_y(hero.box) - SCREEN_H / 2) * SP
+    var ty = (hero.box.y + 8 - SCREEN_H / 2) * SP
     var dx = tx - camera.sx
     var dy = ty - camera.sy
     var l = sqrt(dx * dx + dy * dy)
@@ -143,8 +143,9 @@ func game_set_state(s):
         game.countdown = LEVEL_CARD_FRAMES
         audio_stop_music()
     elif s == GAME_STATE_PLAY:
-        game_init_level(LEVEL_DATA[game.level])
+        game_init_level(LEVEL_DATA[game.level].data)
         audio_music_volume = 32
+        # audio_music_volume = 0
         audio_play_music(MUSIC_LEVEL)
 
     elif s == GAME_STATE_LEVEL_DONE:
@@ -201,7 +202,7 @@ func game_update():
             if game.level >= LEVEL_DATA.len:
                 game_set_state(GAME_STATE_WIN)
             else:
-                game_init_level(LEVEL_DATA[game.level])
+                game_init_level(LEVEL_DATA[game.level].data)
                 game_set_state(GAME_STATE_LEVEL)
                 return
 
@@ -269,7 +270,8 @@ func game_draw():
         var buf: int[20]
         var p = strcpy(buf, "LEVEL ")
         strnum(p, game.level + 1)
-        draw_centered_text(SCREEN_W / 2, SCREEN_H / 2 - 4, buf)
+        draw_centered_text(SCREEN_W / 2, SCREEN_H / 2 - 12, buf)
+        draw_centered_text(SCREEN_W / 2, SCREEN_H / 2 + 4, LEVEL_DATA[game.level].name)
         return
 
     # screen shake: offset the camera for drawing only

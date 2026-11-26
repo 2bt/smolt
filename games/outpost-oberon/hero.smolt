@@ -189,9 +189,9 @@ func cape_draw():
 
 func hero_init():
     hero = {}
-    hero.box.w = 8
-    hero.box.h = 14
-    hero.quanta = QUANTA_START
+    hero.box.w  = 8
+    hero.box.h  = 14
+    hero.quanta = 0
 
 
 func hero_set_state(s):
@@ -405,7 +405,7 @@ func hero_update():
 
     # lava
     var t = level_get_tile(hero.box.x, hero.box.y + 4)
-    if t == 'l':
+    if t == 'L':
         hero_set_state(HERO_STATE_DYING)
         hero.vy = 4
         return

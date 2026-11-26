@@ -67,7 +67,6 @@ const PICKUP_FLY_FRAMES    = 60   # the first frames, where a dropped one flies;
 const PICKUP_BLINK_FRAMES  = 60   # the last frames before a dropped one is gone
 
 const HELMET_SCORE         = 500
-const QUANTA_START         = 30
 const QUANTA_RESPAWN       = 10   # paid on each respawn; all that's left if fewer
 const QUANTUM_SCORE        = 10
 const QUANTUM_MAGNET_RANGE = 32   # pixels
@@ -98,6 +97,7 @@ func level_init(data: int*):
         if b.type != BLOCK_NONE: level.data[b.i] = b.type
     level.data = data
     level.w    = stridx(data, 'X') + 1
+    if level.w == 0: print("error: level width")
     level.h    = strlen(data) / level.w
     level.tick = 0
 
@@ -174,7 +174,6 @@ func level_drop_pickup(type, x, y):
         p.vy = p.vy * rand(20, 30) / l
 
 
-
 func level_add_platform(type, c, r, n):
     for p in level.platforms:
         if p.type != PLATFORM_NONE: continue
@@ -228,18 +227,14 @@ func level_get_tile_at_cr(c, r):
     if c == 'X': return '0'
     return c
 
-func level_get_tile(x, y):
-    return level_get_tile_at_cr(x / TS, y / TS)
+func level_get_tile(x, y): return level_get_tile_at_cr(x / TS, y / TS)
 
-func level_is_solid(t):
-    return t == '0' or t == 'X' or t == 'B' or t == 'T' or level_is_secret(t)
-
+func level_is_solid(t): return t == '0' or t == 'X' or t == 'B' or t == 'T' or level_is_secret(t)
+func level_is_jump_through(t): return t == '^' or t == 'R'
+func level_is_secret(t): return t == BLOCK_SECRET or t == BLOCK_SECRET_QUANTUM
 # drawn as plain wall
-func level_is_wall(t):
-    return t == '0' or level_is_secret(t)
+func level_is_wall(t): return t == '0' or level_is_secret(t)
 
-func level_is_secret(t):
-    return t == BLOCK_SECRET or t == BLOCK_SECRET_QUANTUM
 
 # something hit the block at (x, y), if there is one: a boom block lights its fuse;
 # treasure and secret blocks take damage, but only from the hero: bullet is null for anything else
@@ -333,7 +328,7 @@ func level_test_down(x, y, py) int:
     var o = 0
     var t = level_get_tile(x, y)
     if (level_is_solid(t) or
-        t == '^' and (y / TS) > (py / TS)):
+        level_is_jump_through(t) and (y / TS) > (py / TS)):
         o = -1 - (y % TS)
     # platforms are jump-through: only land when moving down from above.
     # A rising platform (1 px per frame at most) may have just moved into py: that counts as above too.
@@ -521,9 +516,11 @@ func level_update():
                     p.vx = dx * v / max(d, 1)
                     p.vy = dy * v / max(d, 1)
             # in lava: rise slowly, until it pokes out of the surface
-            var t1 = level_get_tile(p.box.x, p.box.y + 10)      | 32
-            var t2 = level_get_tile(p.box.x, p.box.y + 10 + TS) | 32
-            if t1 == 'l' or t2 == 'l': p.vy -= 4
+            for i = 0, 3:
+                var t = level_get_tile(p.box.x, p.box.y + 10 + TS * i)
+                if t == 'L':
+                    p.vy -= 4
+                    break
 
         # move; flying, it bounces off walls and lands on platforms
         var hit_x = level_move_box_x(&p.sx, &p.box, p.vx)
@@ -584,10 +581,12 @@ func level_draw_background():
             var grey = g == 0 ? 43 : g == 1 ? 44 : 47
             sprite(sx, sy, 1, 1, 0, grey, 0)
 
+    # a margin around the view for sprites bigger than their tile:
+    # the rocket reaches 5 tiles up and 1 to either side
     var c0 = camera.box.x / TS
     var r0 = camera.box.y / TS
-    for r = r0, r0 + SCREEN_H / TS + 2:
-        for c = c0, c0 + SCREEN_W / TS + 1:
+    for r = r0, r0 + SCREEN_H / TS + 2 + 5:
+        for c = c0 - 1, c0 + SCREEN_W / TS + 1 + 1:
             var t = level_get_tile_at_cr(c, r)
             var x = c * TS - camera.box.x
             var y = r * TS - camera.box.y
@@ -608,6 +607,10 @@ func level_draw_background():
                     q = (q + 5) % 31
                     var color = q >= i ? 0 : q > 10 ? 3 : 6
                     if color: sprite(x, y + 31 - i, TS, 1, 0, 32 + color, 0)
+
+            elif t == 'R':
+                sprite(x + TS/2 - 24, y + TS - 96, 48, 96, 128, 80, 0)
+
 
     for p in level.platforms:
         if p.type == PLATFORM_NONE: continue
@@ -641,11 +644,12 @@ func level_draw_walls():
                 if not level_is_wall(level_get_tile_at_cr(c, r - 1)): sprite(x, y, TS, TS, 2 * TS, 48, 0)
                 if not level_is_wall(level_get_tile_at_cr(c, r + 1)): sprite(x, y, TS, TS, 3 * TS, 48, 0)
 
-            elif t == 'L':  # lava
-                sprite(x, y, TS, TS, 5 * TS, 48, 0)
-            elif t == 'l':  # lava surface
-                var f = (level.tick + c * 25) / 6 % 7
-                sprite(x, y, TS, TS, (6 + f) * TS, 48, 0)
+            elif t == 'L':
+                if level_get_tile_at_cr(c, r - 1) == 'L':  # inner lava
+                    sprite(x, y, TS, TS, 5 * TS, 48, 0)
+                else:  # surface
+                    var f = (level.tick + c * 25) / 6 % 7
+                    sprite(x, y, TS, TS, (6 + f) * TS, 48, 0)
 
     for p in level.pickups:
         if p.type == PICKUP_NONE or (p.ttl > 0 and p.ttl < PICKUP_BLINK_FRAMES and p.ttl & 4): continue
