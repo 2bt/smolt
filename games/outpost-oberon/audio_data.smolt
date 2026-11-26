@@ -14,19 +14,25 @@ var SFX_EXIT = "
 @3 d8 T=82,+-8,,,+-8,,,+-6,,,|+22,,+-8,,+-8,,+-6,,
 @2 v50 l15a9r9 N=90|f-14,
 "
-var SFX_LAND         = "@1 v45 d1 N=38,=33,9"
-var SFX_HERO_JUMP    = "@1 v50 l3 s64r2 S=45,|f6,"
-var SFX_HERO_SHOOT   = "@0 v50 d5 W128w4 P=76,=70,|f-18,,f16,"
-var SFX_BULLET_WALL  = "@2!0 d1 N=100,=70,10"
-var SFX_CHARGE       = "@3 l10a4s64 N=40|,+4"
-var SFX_PATROL_SHOOT = "@3 d5 W20w2 P=80|,+3,+3,+-3,+-3,"
-var SFX_CANNON_SHOOT = "@3 d6 W10w8 P=50|,+-3,+-3,+-3,+-3,+10,"
-var SFX_BUGGER_JUMP  = "@3 d3 W32 P=44,+4,+4|f4,"
-var SFX_CRAWLER_DROP = "@3 d30 l60 v50 T=70|,f-2"
-var SFX_CRAWLER_LAND = "@3 d4 N=38,=33,20"
-var SFX_CRAWLER_HUSH = "@3"   # silence: stops the drop when it dies mid-fall
-var SFX_ENEMY_HIT    = "@2!0 d3 N=66,T=60,=54,=50,"
-var SFX_EXPLOSION    = "@2 d8 N|=60,+-10,+-10,+-8,,"
+var SFX_LAND          = "@1 v45 d1 N=38,=33,9"
+var SFX_ROCKET_ENGINE = "@2 v50 s64 N=24|,+1,+-1,"   # loops until the landing replaces it
+var SFX_ROCKET_LAND   = "
+@2 v80 d8 N=30,=24,30
+@3 d10 N|=40,+-3,+-3,+-3,+-3,+-3,,,
+"
+var SFX_ROCKET_DOOR   = "@1 l26 s64 r3 N=50,T=30,+6,+6,+6,+6,+6,30"
+var SFX_HERO_JUMP     = "@1 v50 l3 s64r2 S=45,|f6,"
+var SFX_HERO_SHOOT    = "@0 v50 d5 W128w4 P=76,=70,|f-18,,f16,"
+var SFX_BULLET_WALL   = "@2!0 d1 N=100,=70,10"
+var SFX_CHARGE        = "@3 l10a4s64 N=40|,+4"
+var SFX_PATROL_SHOOT  = "@3 d5 W20w2 P=80|,+3,+3,+-3,+-3,"
+var SFX_CANNON_SHOOT  = "@3 d6 W10w8 P=50|,+-3,+-3,+-3,+-3,+10,"
+var SFX_BUGGER_JUMP   = "@3 d3 W32 P=44,+4,+4|f4,"
+var SFX_CRAWLER_DROP  = "@3 d30 l60 v50 T=70|,f-2"
+var SFX_CRAWLER_LAND  = "@3 d4 N=38,=33,20"
+var SFX_CRAWLER_HUSH  = "@3"   # silence: stops the drop when it dies mid-fall
+var SFX_ENEMY_HIT     = "@2!0 d3 N=66,T=60,=54,=50,"
+var SFX_EXPLOSION     = "@2 d8 N|=60,+-10,+-10,+-8,,"
 var SFX_BOOM = "
 @2 d8 T|=28,+-2,+-2,+-2,+-2,,
 @3 d10 N|=40,+-3,+-3,+-3,+-3,+-3,,,

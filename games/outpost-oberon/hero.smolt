@@ -3,10 +3,13 @@ const HERO_STATE_SPAWNING  = 2
 const HERO_STATE_DYING     = 3
 const HERO_STATE_RETURNING = 4
 const HERO_STATE_EXITING   = 5
+const HERO_STATE_LANDING   = 6  # level start at the rocket: hidden while it lands
 
 const HERO_SPAWN_FRAMES    = 40
 const HERO_IFRAMES         = 75
 const HERO_EXIT_FRAMES     = 40
+
+const ROCKET_EXIT = 60
 
 const RUN_MAX      = 20
 const ACCEL_GROUND = 5
@@ -233,6 +236,11 @@ func hero_set_state(s):
         hero.hit_countdown   = 0
         hero.run_tick        = 0
 
+    elif s == HERO_STATE_LANDING:
+        level.rocket_sy    = 200 * SP
+        level.rocket_door  = 0
+        hero.hit_countdown = ROCKET_EXIT
+        audio_play_sfx(SFX_ROCKET_ENGINE)
     elif s == HERO_STATE_NORMAL:
         hero.hit_countdown = HERO_IFRAMES
 
@@ -266,6 +274,27 @@ func hero_update():
     if hero.state == HERO_STATE_SPAWNING:
         if hero.hit_countdown > 0: hero.hit_countdown -= 1
         else: hero_set_state(HERO_STATE_NORMAL)
+
+    elif hero.state == HERO_STATE_LANDING:
+        if level.rocket_sy > 0:
+            # slowing down all the way to the pad
+            level.rocket_sy -= level.rocket_sy / 40 + 4
+            if level.rocket_sy <= 0:
+                level.rocket_sy = 0
+                audio_play_sfx(SFX_ROCKET_LAND)
+                camera.shake = 20
+                var i = stridx(level.data, 'R')
+                var x = i % level.w * TS + TS / 2
+                var y = i / level.w * TS + TS - 1
+                for k = 0, 16: particle_spawn(PARTICLE_TYPE_DEBRIS, x + ((k & 1) ? 22 : -22), y)
+        elif hero.hit_countdown > 0:
+            hero.hit_countdown -= 1
+            var tick = ROCKET_EXIT - hero.hit_countdown - 30
+            if tick == -2: audio_play_sfx(SFX_ROCKET_DOOR)
+            level.rocket_door = clamp(tick / 3, 0, 8)
+        else:
+            hero_set_state(HERO_STATE_NORMAL)
+            hero.hit_countdown = 0  # no blinking: it just steps out
 
     elif hero.state == HERO_STATE_EXITING:
         if hero.hit_countdown > 0: hero.hit_countdown -= 1
@@ -419,11 +448,16 @@ func hero_update():
 
 func hero_draw():
     if hero.state == HERO_STATE_RETURNING: return
-    if hero.hit_countdown & 2: return
+    if hero.state == HERO_STATE_LANDING and level.rocket_door == 0: return
 
-    if hero.state == HERO_STATE_NORMAL: cape_draw()
+    var flashing = false
+    if hero.hit_countdown > 0: flashing = true
+    if hero.state == HERO_STATE_LANDING: flashing = level.rocket_door == 0
+    if flashing and hero.hit_countdown & 2: return
 
-    var row = 2
+    if hero.state == HERO_STATE_NORMAL or hero.state == HERO_STATE_LANDING: cape_draw()
+
+    var row = flashing ? 2 : 0
     if hero.state == HERO_STATE_NORMAL:
          row = hero.shoot_countdown > 1 ? 1 : 0
          if hero.helmet: row -= 2

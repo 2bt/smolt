@@ -80,10 +80,13 @@ struct Level:
     spawn_x
     spawn_y
     tick
+    rocket_sy   # how far above its pad the rocket is, in subpixels; > 0 while it lands
+    rocket_door # frames the door has been opening, up to ROCKET_DOOR_FRAMES: open
+    checkpoint_tick
+
     checkpoints: Vec[10]
     checkpoint_count
     active_checkpoint: Vec*
-    checkpoint_tick
     platforms: Platform[10]
     blocks: Block[100]
     pickups: Pickup[100]
@@ -609,7 +612,10 @@ func level_draw_background():
                     if color: sprite(x, y + 31 - i, TS, 1, 0, 32 + color, 0)
 
             elif t == 'R':
-                sprite(x + TS/2 - 24, y + TS - 96, 48, 96, 128, 80, 0)
+                var ry = y - level.rocket_sy / SP
+                # the engine, while landing: a flashing flame, its top behind the nozzle
+                if level.rocket_sy > 0 and level.tick & 2: sprite(x + TS/2 - 11, ry + 5, 22, 38, 176, 112, 0)
+                sprite(x + TS/2 - 24, ry + TS - 96, 48, 96, 128, 80, 0)
 
 
     for p in level.platforms:
@@ -650,6 +656,18 @@ func level_draw_walls():
                 else:  # surface
                     var f = (level.tick + c * 25) / 6 % 7
                     sprite(x, y, TS, TS, (6 + f) * TS, 48, 0)
+
+            elif t == 'R':
+                var ry = y - level.rocket_sy / SP
+                # the door: two halves, each drawn narrower from the middle as it opens
+                var o = level.rocket_door
+                if o < 8:
+                    var dx = x + TS/2 - 8
+                    var dy = ry + TS - 48
+                    sprite(dx,         dy, 8 - o, 32, 176,     80, 0)
+                    sprite(dx + 8 + o, dy, 8 - o, 32, 184 + o, 80, 0)
+
+
 
     for p in level.pickups:
         if p.type == PICKUP_NONE or (p.ttl > 0 and p.ttl < PICKUP_BLINK_FRAMES and p.ttl & 4): continue
