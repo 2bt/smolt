@@ -41,6 +41,7 @@ struct AudioRow:
     instr
     jump        # j: run this instrument on the playing note, -1 = none
     octave
+    transpose   # t: semitones added to every note
     volume
     quant
     wait
@@ -49,6 +50,8 @@ struct AudioTrack:
     index
     pos: int*
     loop: int*
+    last: int*      # where its last @ block starts: past it, there is nothing more of it to find
+    ret: int*       # inside a pattern: where to go on when it ends
     row: AudioRow   # playing
     next: AudioRow  # read ahead, to release the note early if the next row has a new one
 
@@ -60,6 +63,7 @@ struct AudioTrack:
     voice: AudioVoice
 
 var audio_instruments: int*[100]
+var audio_patterns: int*[100]      # %n, played by pn: no nesting, no | inside
 var audio_tracks: AudioTrack[8]   # @i plays on APU voice 7 - i
 var audio_sfx: AudioVoice[8]      # @i plays on APU voice i, over the music
 var audio_music_volume = 64
@@ -88,6 +92,7 @@ func audio_read_num(p: int**) int:
 
 func audio_stop_music():
     for n in audio_instruments: n.* = null
+    for n in audio_patterns: n.* = null
     for t in audio_tracks: t.* = {}
 
 func audio_play_music(p: int*):
@@ -100,16 +105,20 @@ func audio_play_music(p: int*):
         elif c == '$':
             var i = audio_read_num(p)
             if i < audio_instruments.len: audio_instruments[i] = p
+        elif c == '%':
+            var i = audio_read_num(p)
+            if i < audio_patterns.len: audio_patterns[i] = p
         elif c == '@':
             var i = audio_read_num(p)
             if i < audio_tracks.len:
                 var s = &audio_tracks[i]
+                s.last = p
                 if s.pos: continue
                 s.pos         = p
                 s.index       = i
                 s.next.volume = 64
                 s.next.octave = 4
-        elif c == '%': for s in audio_tracks: s.pos = null
+        elif c == '!': for s in audio_tracks: s.pos = null   # start here
     for s in audio_tracks: audio_track_read_row(s)
 
 
@@ -224,13 +233,24 @@ func audio_track_read_row(t: AudioTrack*) int:
         elif c == '+': r.note += 1
         elif c == '-': r.note -= 1
         elif c == '=': r.note = AUDIO_NOTE_OFF
-        elif c >= 'a' and c <= 'g': r.note = stridx("c d ef g a b", c) + 12 * r.octave
-        elif c == 't': r.wait = audio_read_num(t.pos)
+        elif c >= 'a' and c <= 'g': r.note = stridx("c d ef g a b", c) + 12 * r.octave + r.transpose
+        elif c == 't': r.transpose = audio_read_num(t.pos)
+        elif c == 's': r.wait = audio_read_num(t.pos)
+        elif c == 'p':
+            var i = audio_read_num(t.pos)
+            if i < audio_patterns.len and audio_patterns[i]:
+                t.ret = t.pos
+                t.pos = audio_patterns[i]
         elif c == ',':
             r.wait = audio_read_num(t.pos) ?: r.wait
             return true
+        elif t.ret:
+            # end of a pattern: back to where it was played
+            t.pos = t.ret
+            t.ret = null
         else:
-            # skip
+            # skip to its next @ block; after the last one, straight back to the loop
+            if t.pos > t.last: c = '\0'
             while true:
                 if c == '\0':
                     t.pos = t.loop
